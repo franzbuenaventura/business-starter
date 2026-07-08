@@ -1,0 +1,15 @@
+services:
+  business-starter:
+    build: .
+    ports:
+      - "3001:3001"
+    volumes:
+      - app-data:/app/data
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - DB_PATH=/app/data/app.db
+    restart: unless-stopped
+
+volumes:
+  app-data:
