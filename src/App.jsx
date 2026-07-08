@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import SectionI from './sections/SectionI.jsx'
 import SectionII from './sections/SectionII.jsx'
 import SectionIII from './sections/SectionIII.jsx'
@@ -10,6 +10,7 @@ import SectionVIII from './sections/SectionVIII.jsx'
 import SectionIX from './sections/SectionIX.jsx'
 import SectionX from './sections/SectionX.jsx'
 import './styles.css'
+import './print.css'
 
 const API = '/api/businesses'
 const SECTIONS = [
@@ -40,7 +41,6 @@ function hasSectionData(data) {
     try { parsed = JSON.parse(data) } catch { return false }
   }
   if (!parsed || typeof parsed !== 'object') return false
-  // Check if any value is non-empty
   return Object.values(parsed).some(v => {
     if (v == null) return false
     if (typeof v === 'string') return v.trim() !== ''
@@ -65,7 +65,7 @@ function formatDate(ts) {
 /* ── App ────────────────────────────────────────────────────── */
 
 export default function App() {
-  const [businesses, setBusinesses] = useState(null) // null = loading, [] = loaded
+  const [businesses, setBusinesses] = useState(null)
   const [selectedId, setSelectedId] = useState(null)
   const [showCreate, setShowCreate] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
@@ -222,7 +222,11 @@ function PlanView({ id, onBack }) {
   const [plan, setPlan] = useState(null)
   const [activeTab, setActiveTab] = useState('I')
   const [sectionData, setSectionData] = useState({})
-  const [saving, setSaving] = useState(false)
+  const [saveStatus, setSaveStatus] = useState('idle') // 'idle' | 'saving' | 'saved'
+  const [printMode, setPrintMode] = useState(false)
+  const saveTimerRef = useRef(null)
+  const pendingDataRef = useRef(null)
+  const activeTabRef = useRef('I')
 
   useEffect(() => {
     fetch(`${API}/${id}`)
@@ -234,15 +238,86 @@ function PlanView({ id, onBack }) {
       .catch(() => setPlan({ error: true }))
   }, [id])
 
-  async function saveSection(key, content) {
-    setSaving(true)
-    await fetch(`${API}/${id}/sections/${key}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content })
-    })
-    setSectionData(prev => ({ ...prev, [key]: content }))
-    setSaving(false)
+  // Cleanup timer on unmount
+  useEffect(() => {
+    return () => {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    }
+  }, [])
+
+  // Keep ref in sync
+  useEffect(() => {
+    activeTabRef.current = activeTab
+  }, [activeTab])
+
+  // Debounced save function
+  const scheduleSave = useCallback((key, content) => {
+    pendingDataRef.current = { key, content }
+    setSaveStatus('saving')
+
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+
+    saveTimerRef.current = setTimeout(async () => {
+      const { key: k, content: c } = pendingDataRef.current
+      try {
+        await fetch(`${API}/${id}/sections/${k}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content: c })
+        })
+        setSectionData(prev => ({ ...prev, [k]: c }))
+      } catch (e) {
+        console.error('Autosave failed:', e)
+      }
+      setSaveStatus('saved')
+      // Fade out saved status after 2s
+      setTimeout(() => {
+        setSaveStatus('idle')
+      }, 2000)
+      saveTimerRef.current = null
+    }, 1500)
+  }, [id])
+
+  // Flush pending save immediately (used on tab switch)
+  const flushSave = useCallback(async () => {
+    if (saveTimerRef.current) {
+      clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = null
+      const { key, content } = pendingDataRef.current
+      if (key && content !== undefined) {
+        setSaveStatus('saving')
+        try {
+          await fetch(`${API}/${id}/sections/${key}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content })
+          })
+          setSectionData(prev => ({ ...prev, [key]: content }))
+        } catch (e) {
+          console.error('Flush save failed:', e)
+        }
+        setSaveStatus('saved')
+        setTimeout(() => setSaveStatus('idle'), 2000)
+      }
+    }
+  }, [id])
+
+  function handleTabSwitch(newKey) {
+    if (newKey === activeTab) return
+    // Flush any pending save before switching
+    if (saveTimerRef.current) {
+      flushSave()
+    }
+    setActiveTab(newKey)
+  }
+
+  function handleExportPDF() {
+    setPrintMode(true)
+    // Give React time to render all sections before printing
+    setTimeout(() => {
+      window.print()
+      setPrintMode(false)
+    }, 300)
   }
 
   const completedCount = useMemo(() => countCompletedSections(sectionData), [sectionData])
@@ -280,6 +355,39 @@ function PlanView({ id, onBack }) {
     )
   }
 
+  // ── Print Mode: render all sections stacked ──
+  if (printMode) {
+    return (
+      <div className="plan-layout">
+        <div className="plan-main">
+          <div className="plan-content">
+            <div className="print-doc-header">
+              <div className="print-doc-header__name">{plan.name}</div>
+              {plan.industry && <div className="print-doc-header__industry">{plan.industry}</div>}
+              <hr className="print-doc-header__rule" />
+            </div>
+            {SECTIONS.map(s => {
+              const SectionComponent = SECTION_COMPONENTS[s.key]
+              const raw = sectionData[s.key]
+              const parsed = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {}
+              return (
+                <div className="print-section" key={s.key}>
+                  <div className="print-section__number">Section {s.key}</div>
+                  <h2 className="print-section__title">{s.label}</h2>
+                  {SectionComponent ? (
+                    <SectionComponent data={parsed} onChange={() => {}} />
+                  ) : (
+                    <div>Section not available.</div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="plan-layout">
       {/* Sidebar */}
@@ -305,7 +413,7 @@ function PlanView({ id, onBack }) {
               <button
                 key={s.key}
                 className={`plan-nav__item ${active ? 'plan-nav__item--active' : ''} ${completed ? 'plan-nav__item--completed' : ''}`}
-                onClick={() => setActiveTab(s.key)}
+                onClick={() => handleTabSwitch(s.key)}
               >
                 <span className="plan-nav__num">
                   {completed && !active ? '✓' : s.key}
@@ -323,10 +431,13 @@ function PlanView({ id, onBack }) {
         <header className="plan-header">
           <span className="plan-header__title">Section {activeTab}</span>
           <span className="plan-header__badge">{SECTIONS.find(s => s.key === activeTab)?.label}</span>
-          <div className="plan-header__status">
-            <span className={`plan-header__status-dot ${saving ? 'plan-header__status-dot--saving' : 'plan-header__status-dot--saved'}`} />
-            {saving ? 'Saving…' : 'All changes saved'}
+          <div className="plan-header__status save-status">
+            <span className={`plan-header__status-dot ${saveStatus === 'saving' ? 'plan-header__status-dot--saving' : 'plan-header__status-dot--saved'}`} style={{ opacity: saveStatus === 'idle' ? 0.3 : 1 }} />
+            {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved ✓' : 'All changes saved'}
           </div>
+          <button className="btn btn--secondary plan-header__export" onClick={handleExportPDF}>
+            📄 Export PDF
+          </button>
         </header>
 
         <div className="plan-content">
@@ -334,7 +445,8 @@ function PlanView({ id, onBack }) {
             sectionKey={activeTab}
             sectionLabel={SECTIONS.find(s => s.key === activeTab)?.label || ''}
             sectionData={sectionData[activeTab]}
-            onSave={(content) => saveSection(activeTab, content)}
+            onSave={(content) => scheduleSave(activeTab, content)}
+            saveStatus={saveStatus}
           />
         </div>
       </div>
@@ -344,25 +456,30 @@ function PlanView({ id, onBack }) {
 
 /* ── Section Router ─────────────────────────────────────────── */
 
-function SectionRouter({ sectionKey, sectionLabel, sectionData, onSave }) {
+function SectionRouter({ sectionKey, sectionLabel, sectionData, onSave, saveStatus }) {
   const [localData, setLocalData] = useState(null)
-  const [dirty, setDirty] = useState(false)
+  const dirtyRef = useRef(false)
+  const localDataRef = useRef(null)
+  const onSaveRef = useRef(onSave)
+
+  // Keep onSaveRef current
+  useEffect(() => {
+    onSaveRef.current = onSave
+  }, [onSave])
 
   useEffect(() => {
     const parsed = typeof sectionData === 'string' ? JSON.parse(sectionData) : sectionData
     setLocalData(parsed || {})
-    setDirty(false)
+    localDataRef.current = parsed || {}
+    dirtyRef.current = false
   }, [sectionKey, sectionData])
 
   const handleChange = useCallback((newData) => {
     setLocalData(newData)
-    setDirty(true)
+    localDataRef.current = newData
+    dirtyRef.current = true
+    onSaveRef.current(newData)
   }, [])
-
-  const handleSave = useCallback(() => {
-    onSave(localData)
-    setDirty(false)
-  }, [onSave, localData])
 
   const SectionComponent = SECTION_COMPONENTS[sectionKey]
 
@@ -378,13 +495,10 @@ function SectionRouter({ sectionKey, sectionLabel, sectionData, onSave }) {
         </div>
       )}
 
-      <div className={`save-bar ${dirty ? 'save-bar--dirty' : ''}`}>
+      <div className="save-bar save-status">
         <div className="save-bar__status">
-          {dirty ? '✏️ Unsaved changes' : '✅ All changes saved'}
+          {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved ✓' : 'All changes saved'}
         </div>
-        <button className="btn btn--primary" onClick={handleSave} disabled={!dirty}>
-          {dirty ? 'Save Section' : 'Saved'}
-        </button>
       </div>
     </div>
   )
