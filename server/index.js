@@ -67,8 +67,7 @@ function hasSectionData(content) {
 }
 
 function autoCalcStatus(db, planId) {
-  const result = db.exec(`SELECT section_key, content FROM plan_sections WHERE plan_id = ${planId}`)
-  const sections = result.length > 0 ? rowsToObjects(result) : []
+  const sections = queryAll(db, 'SELECT section_key, content FROM plan_sections WHERE plan_id = ?', [planId])
   const filled = sections.filter(s => hasSectionData(s.content)).length
   if (filled === 0) return 'draft'
   if (filled >= 10) return 'complete'
@@ -82,6 +81,23 @@ function getBusinessStatus(db, business) {
 
 function rowsToObjects(result) { if (!result || result.length === 0) return []; const cols = result[0].columns; return result[0].values.map(row => { const obj = {}; cols.forEach((col, i) => { obj[col] = row[i] }); return obj }) }
 function rowToObject(result) { return rowsToObjects(result)[0] || null }
+function safeParseJson(text) { if (text == null) return null; try { return JSON.parse(text) } catch { return null } }
+
+/* Parameterized query helpers — sql.js db.exec() cannot bind params,
+   so any query touched by user input MUST go through these. */
+function queryAll(db, sql, params = []) {
+  const stmt = db.prepare(sql)
+  try {
+    stmt.bind(params)
+    const rows = []
+    while (stmt.step()) rows.push(stmt.getAsObject())
+    return rows
+  } finally {
+    stmt.free()
+  }
+}
+function queryOne(db, sql, params = []) { return queryAll(db, sql, params)[0] || null }
+function isIntId(v) { const n = Number(v); return Number.isInteger(n) && n > 0 }
 
 /* ── Auth helpers ───────────────────────────────────────────── */
 
@@ -89,13 +105,42 @@ function sha256(text) {
   return crypto.createHash('sha256').update(text).digest('hex')
 }
 
+/** Hash a PIN with scrypt + per-PIN salt. Stored format: scrypt$<saltHex>$<hashHex> */
+function hashPin(pin) {
+  const salt = crypto.randomBytes(16)
+  const hash = crypto.scryptSync(String(pin), salt, 64)
+  return `scrypt$${salt.toString('hex')}$${hash.toString('hex')}`
+}
+
+/** Constant-time PIN verification; supports legacy unsalted sha256 for migration. */
+function verifyPin(pin, stored) {
+  if (!stored) return false
+  const pinStr = String(pin)
+  try {
+    if (stored.startsWith('scrypt$')) {
+      const [, saltHex, hashHex] = stored.split('$')
+      const hash = crypto.scryptSync(pinStr, Buffer.from(saltHex, 'hex'), 64)
+      const expected = Buffer.from(hashHex, 'hex')
+      return hash.length === expected.length && crypto.timingSafeEqual(hash, expected)
+    }
+    // Legacy: unsalted sha256 hex
+    const legacy = Buffer.from(sha256(pinStr), 'hex')
+    const expected = Buffer.from(stored, 'hex')
+    return legacy.length === expected.length && crypto.timingSafeEqual(legacy, expected)
+  } catch {
+    return false
+  }
+}
+
+const isLegacyHash = (stored) => typeof stored === 'string' && !stored.startsWith('scrypt$') && /^[0-9a-f]{64}$/i.test(stored)
+
 function generateToken() {
   return crypto.randomBytes(32).toString('hex')
 }
 
 function isPinSet(db) {
-  const result = db.exec("SELECT value FROM auth_settings WHERE key = 'pin_hash'")
-  return !!(result && result.length > 0 && result[0].values[0][0])
+  const row = queryOne(db, "SELECT value FROM auth_settings WHERE key = 'pin_hash'")
+  return !!(row && row.value)
 }
 
 function createSession(db, persistFn) {
@@ -107,8 +152,7 @@ function createSession(db, persistFn) {
 
 function isValidSession(db, token) {
   if (!token) return false
-  const result = db.exec(`SELECT token FROM sessions WHERE token = '${token.replace(/'/g, "''")}'`)
-  return !!(result && result.length > 0)
+  return !!queryOne(db, 'SELECT token FROM sessions WHERE token = ?', [token])
 }
 
 /* ── Auth middleware ────────────────────────────────────────── */
@@ -149,6 +193,61 @@ function createApp(db, persistFn) {
   // Auth middleware – must be before API routes
   app.use(authMiddleware(db))
 
+  /* ── Throttles (in-memory; reset on restart) ─────────────── */
+
+  const LOGIN_WINDOW_MS = 15 * 60 * 1000
+  const LOGIN_MAX_ATTEMPTS = 5
+  const LOGIN_LOCKOUT_MS = 15 * 60 * 1000
+  const AI_DRAFT_WINDOW_MS = 10 * 60 * 1000
+  const AI_DRAFT_MAX = Number(process.env.AI_DRAFT_MAX) || 10
+  const loginAttempts = new Map()
+  const aiDraftHits = new Map()
+
+  function clientIp(req) {
+    return req.ip || req.socket?.remoteAddress || 'unknown'
+  }
+
+  function checkLocked(map) {
+    return (req, res, next) => {
+      const now = Date.now()
+      const entry = map.get(clientIp(req))
+      if (entry && entry.lockedUntil && now < entry.lockedUntil) {
+        const retry = Math.ceil((entry.lockedUntil - now) / 1000)
+        res.set('Retry-After', String(retry))
+        return res.status(429).json({ error: 'Too many failed attempts. Try again later.', retryAfterSeconds: retry })
+      }
+      next()
+    }
+  }
+
+  function recordAuthFailure(map, req) {
+    const ip = clientIp(req)
+    const now = Date.now()
+    const entry = map.get(ip) || { count: 0, firstAt: now, lockedUntil: 0 }
+    if (now - entry.firstAt > LOGIN_WINDOW_MS) { entry.count = 0; entry.firstAt = now }
+    entry.count += 1
+    if (entry.count >= LOGIN_MAX_ATTEMPTS) entry.lockedUntil = now + LOGIN_LOCKOUT_MS
+    map.set(ip, entry)
+  }
+
+  function rateLimit(map, windowMs, max) {
+    return (req, res, next) => {
+      const ip = clientIp(req)
+      const now = Date.now()
+      const entry = map.get(ip) || { count: 0, firstAt: now }
+      if (now - entry.firstAt > windowMs) { entry.count = 0; entry.firstAt = now }
+      entry.count += 1
+      map.set(ip, entry)
+      if (map.size > 1000) { for (const [k, v] of map) { if (now - v.firstAt > windowMs) map.delete(k) } }
+      if (entry.count > max) {
+        const retry = Math.max(1, Math.ceil((entry.firstAt + windowMs - now) / 1000))
+        res.set('Retry-After', String(retry))
+        return res.status(429).json({ error: 'Rate limit exceeded. Try again later.', retryAfterSeconds: retry })
+      }
+      next()
+    }
+  }
+
   const distPath = path.join(__dirname, '..', 'dist')
   if (fs.existsSync(distPath)) app.use(express.static(distPath))
 
@@ -162,18 +261,27 @@ function createApp(db, persistFn) {
     const { pin } = req.body
     if (!pin || pin.length < 4) return res.status(400).json({ error: 'PIN must be at least 4 characters' })
     if (isPinSet(db)) return res.status(409).json({ error: 'PIN has already been set' })
-    db.run("INSERT INTO auth_settings (key, value) VALUES ('pin_hash', ?)", [sha256(pin)])
+    db.run("INSERT INTO auth_settings (key, value) VALUES ('pin_hash', ?)", [hashPin(pin)])
     const token = createSession(db, persistFn)
     if (persistFn) persistFn()
     res.status(201).json({ token })
   })
 
-  app.post('/api/auth/login', (req, res) => {
+  app.post('/api/auth/login', checkLocked(loginAttempts), (req, res) => {
     const { pin } = req.body
     if (!pin) return res.status(400).json({ error: 'PIN is required' })
     if (!isPinSet(db)) return res.status(400).json({ error: 'PIN has not been set. Use /api/auth/setup first.' })
-    const storedHash = db.exec("SELECT value FROM auth_settings WHERE key = 'pin_hash'")[0].values[0][0]
-    if (sha256(pin) !== storedHash) return res.status(401).json({ error: 'Incorrect PIN' })
+    const stored = queryOne(db, "SELECT value FROM auth_settings WHERE key = 'pin_hash'")?.value
+    if (!verifyPin(pin, stored)) {
+      recordAuthFailure(loginAttempts, req)
+      return res.status(401).json({ error: 'Incorrect PIN' })
+    }
+    // Upgrade legacy unsalted sha256 hashes to salted scrypt on successful login
+    if (isLegacyHash(stored)) {
+      db.run("UPDATE auth_settings SET value = ? WHERE key = 'pin_hash'", [hashPin(pin)])
+      if (persistFn) persistFn()
+    }
+    loginAttempts.delete(clientIp(req))
     const token = createSession(db, persistFn)
     if (persistFn) persistFn()
     res.json({ token })
@@ -202,18 +310,20 @@ function createApp(db, persistFn) {
     if (!name) return res.status(400).json({ error: 'Name is required' })
     db.run('INSERT INTO businesses (name, industry) VALUES (?, ?)', [name, industry || null])
     const id = db.exec('SELECT last_insert_rowid() as id')[0].values[0][0]
-    const business = rowToObject(db.exec('SELECT * FROM businesses WHERE id = ' + id))
+    const business = queryOne(db, 'SELECT * FROM businesses WHERE id = ?', [id])
     if (persistFn) persistFn()
     res.status(201).json(business)
   })
 
   app.get('/api/businesses/:id', (req, res) => {
-    const business = rowToObject(db.exec(`SELECT * FROM businesses WHERE id = ${req.params.id}`))
+    const id = Number(req.params.id)
+    if (!isIntId(id)) return res.status(400).json({ error: 'Invalid id' })
+    const business = queryOne(db, 'SELECT * FROM businesses WHERE id = ?', [id])
     if (!business) return res.status(404).json({ error: 'Not found' })
     business.status = getBusinessStatus(db, business)
-    const sections = rowsToObjects(db.exec(`SELECT section_key, content FROM plan_sections WHERE plan_id = ${req.params.id}`))
+    const sections = queryAll(db, 'SELECT section_key, content FROM plan_sections WHERE plan_id = ?', [id])
     business.sections = {}
-    sections.forEach(s => { business.sections[s.section_key] = s.content ? JSON.parse(s.content) : null })
+    sections.forEach(s => { business.sections[s.section_key] = safeParseJson(s.content) })
     res.json(business)
   })
 
@@ -225,14 +335,16 @@ function createApp(db, persistFn) {
   })
 
   app.get('/api/businesses/:id/sections/:key', (req, res) => {
-    const result = db.exec(`SELECT content FROM plan_sections WHERE plan_id = ${req.params.id} AND section_key = '${req.params.key}'`)
-    if (!result || result.length === 0) return res.json({ content: null })
-    const content = result[0].values[0][0]
-    res.json({ content: content ? JSON.parse(content) : null })
+    const id = Number(req.params.id)
+    if (!isIntId(id)) return res.status(400).json({ error: 'Invalid id' })
+    if (!SECTIONS.includes(req.params.key)) return res.status(400).json({ error: 'Invalid section key' })
+    const row = queryOne(db, 'SELECT content FROM plan_sections WHERE plan_id = ? AND section_key = ?', [id, req.params.key])
+    res.json({ content: row ? safeParseJson(row.content) : null })
   })
 
   app.put('/api/businesses/:id/sections/:key', (req, res) => {
     const { id, key } = req.params
+    if (!SECTIONS.includes(key)) return res.status(400).json({ error: 'Invalid section key' })
     const contentStr = JSON.stringify(req.body.content || {})
     db.run(`INSERT INTO plan_sections (plan_id, section_key, content, updated_at) VALUES (?, ?, ?, datetime('now')) ON CONFLICT(plan_id, section_key) DO UPDATE SET content = excluded.content, updated_at = datetime('now')`, [id, key, contentStr])
     if (persistFn) persistFn()
@@ -244,7 +356,8 @@ function createApp(db, persistFn) {
     if (status && !STATUSES.includes(status)) return res.status(400).json({ error: 'Invalid status' })
     db.run('UPDATE businesses SET status = ? WHERE id = ?', [status || null, req.params.id])
     if (persistFn) persistFn()
-    const business = rowToObject(db.exec('SELECT * FROM businesses WHERE id = ' + req.params.id))
+    const statusId = Number(req.params.id)
+    const business = isIntId(statusId) ? queryOne(db, 'SELECT * FROM businesses WHERE id = ?', [statusId]) : null
     if (business) business.status = getBusinessStatus(db, business)
     res.json(business || { error: 'Not found' })
   })
@@ -290,17 +403,18 @@ function createApp(db, persistFn) {
     res.status(201).json({ imported, message: `Imported ${imported} business plan(s)` })
   })
 
-  // AI Draft: generate draft content for a section using glm-5.2:cloud
-  app.post('/api/ai-draft', async (req, res) => {
+  // AI Draft: generate draft content for a section (model via OLLAMA_MODEL, optional OLLAMA_FALLBACK_MODEL)
+  app.post('/api/ai-draft', rateLimit(aiDraftHits, AI_DRAFT_WINDOW_MS, AI_DRAFT_MAX), async (req, res) => {
     const { businessId, sectionId } = req.body
-    if (!businessId || !sectionId) {
-      return res.status(400).json({ error: 'businessId and sectionId are required' })
+    const bizId = Number(businessId)
+    if (!isIntId(bizId) || !sectionId) {
+      return res.status(400).json({ error: 'businessId (integer) and sectionId are required' })
     }
     const template = SECTION_TEMPLATES[sectionId]
     if (!template) {
       return res.status(400).json({ error: 'Unknown section: ' + sectionId })
     }
-    const business = rowToObject(db.exec('SELECT * FROM businesses WHERE id = ' + businessId))
+    const business = queryOne(db, 'SELECT * FROM businesses WHERE id = ?', [bizId])
     if (!business) {
       return res.status(404).json({ error: 'Business not found' })
     }
@@ -309,27 +423,42 @@ function createApp(db, persistFn) {
     const industry = business.industry || 'unspecified'
     const prompt = `You are a business plan writing assistant. Write a ${sectionLabel} section for a business plan. The business name is "${businessName}" and the industry is "${industry}". ${template} Return ONLY a valid JSON object, no markdown formatting, no code fences, no explanation. Every field value should be a string with realistic, professional content (2-4 sentences each).`
 
+    const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434/api/chat'
+    const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS) || 120000
+    const models = [process.env.OLLAMA_MODEL || 'glm-5.2:cloud', process.env.OLLAMA_FALLBACK_MODEL].filter(Boolean)
+    let text = ''
+    let lastError = null
     try {
-      const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434/api/chat'
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), 120000)
-      const ollamaRes = await fetch(ollamaUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: 'glm-5.2:cloud',
-          messages: [{ role: 'user', content: prompt }],
-          stream: false,
-        }),
-        signal: controller.signal,
-      })
-      clearTimeout(timeout)
-      if (!ollamaRes.ok) {
-        const errText = await ollamaRes.text().catch(() => 'unknown error')
-        return res.status(502).json({ error: 'AI service error: ' + ollamaRes.status, detail: errText })
+      for (const model of models) {
+        try {
+          const controller = new AbortController()
+          const timeout = setTimeout(() => controller.abort(), AI_TIMEOUT_MS)
+          const ollamaRes = await fetch(ollamaUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              model,
+              messages: [{ role: 'user', content: prompt }],
+              stream: false,
+            }),
+            signal: controller.signal,
+          })
+          clearTimeout(timeout)
+          if (!ollamaRes.ok) {
+            lastError = new Error('AI service error (' + model + '): ' + ollamaRes.status)
+            continue
+          }
+          const ollamaData = await ollamaRes.json()
+          text = ollamaData.message?.content || ollamaData.content || ''
+          break
+        } catch (modelErr) {
+          lastError = modelErr
+        }
       }
-      const ollamaData = await ollamaRes.json()
-      let text = ollamaData.message?.content || ollamaData.content || ''
+      if (!text) {
+        const detail = lastError ? String(lastError.message || lastError) : 'no model responded'
+        return res.status(502).json({ error: 'AI draft unavailable', detail })
+      }
       // Strip markdown code fences if present
       text = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim()
       let parsed
@@ -366,8 +495,11 @@ function createApp(db, persistFn) {
 
   // Templates: create a business from a template
   app.post('/api/businesses/from-template', (req, res) => {
-    const { templateId, name, industry } = req.body
+    const { name, industry } = req.body
+    const templateId = String(req.body.templateId || '')
     if (!templateId) return res.status(400).json({ error: 'templateId is required' })
+    // Strict allowlist blocks path traversal (../../) and any filesystem tricks
+    if (!/^[a-z0-9-]+$/.test(templateId)) return res.status(400).json({ error: 'Invalid templateId' })
 
     const templatePath = path.join(__dirname, '..', 'src', 'data', 'templates', `${templateId}.json`)
     if (!fs.existsSync(templatePath)) {
@@ -392,7 +524,7 @@ function createApp(db, persistFn) {
         }
       }
 
-      const business = rowToObject(db.exec('SELECT * FROM businesses WHERE id = ' + id))
+      const business = queryOne(db, 'SELECT * FROM businesses WHERE id = ?', [id])
       if (persistFn) persistFn()
       res.status(201).json(business)
     } catch (e) {
@@ -405,6 +537,14 @@ function createApp(db, persistFn) {
     const indexPath = path.join(distPath, 'index.html')
     if (fs.existsSync(indexPath)) res.sendFile(indexPath)
     else res.status(200).send('Business Starter API running. Build the frontend with `npm run build`.')
+  })
+
+  // JSON parse errors + unexpected failures — must stay last
+  app.use((err, req, res, next) => {
+    console.error('[api]', req.method, req.path, err)
+    if (res.headersSent) return next(err)
+    const parseFailed = err?.type === 'entity.parse.failed'
+    res.status(parseFailed ? 400 : 500).json({ error: parseFailed ? 'Invalid JSON body' : 'Internal server error', detail: String(err?.message || err) })
   })
 
   return app
