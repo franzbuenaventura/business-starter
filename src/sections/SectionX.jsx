@@ -161,17 +161,6 @@ function CheckboxItem({ label, checked, onChange, field }) {
 export default function SectionX({ data, onChange }) {
   const d = data || {};
 
-  const set = useCallback(
-    (key) => (val) => {
-      if (typeof val === "function") {
-        onChange({ ...d, [key]: val(d[key]) });
-      } else {
-        onChange({ ...d, [key]: val });
-      }
-    },
-    [d, onChange]
-  );
-
   return (
     <div style={styles.container}>
       <h1 style={styles.heading}>Refining the Plan</h1>

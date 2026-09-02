@@ -1,4 +1,25 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+
+/* ── Debounce Hook ─────────────────────────────────────────── */
+
+function useDebounced(value, delay = 300) {
+  const [debounced, setDebounced] = useState(value)
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay)
+    return () => clearTimeout(t)
+  }, [value, delay])
+  return debounced
+}
+
+/* ── Status Helpers ────────────────────────────────────────── */
+
+const STATUS_OPTIONS = [
+  { value: 'all', label: 'All Statuses' },
+  { value: 'draft', label: 'Draft' },
+  { value: 'in-progress', label: 'In Progress' },
+  { value: 'complete', label: 'Complete' },
+]
+
 import SectionI from './sections/SectionI.jsx'
 import SectionII from './sections/SectionII.jsx'
 import SectionIII from './sections/SectionIII.jsx'
@@ -9,6 +30,11 @@ import SectionVII from './sections/SectionVII.jsx'
 import SectionVIII from './sections/SectionVIII.jsx'
 import SectionIX from './sections/SectionIX.jsx'
 import SectionX from './sections/SectionX.jsx'
+import ThemeToggle from './components/ThemeToggle.jsx'
+import OfflineIndicator from './components/OfflineIndicator.jsx'
+import AiDraftButton from './components/AiDraftButton.jsx'
+import { useOfflineSync } from './hooks/useOfflineSync.js'
+import { apiFetch, clearToken } from './api.js'
 import './styles.css'
 import './print.css'
 
@@ -62,6 +88,32 @@ function formatDate(ts) {
   } catch { return '' }
 }
 
+/* ── Status helpers ─────────────────────────────────────────── */
+
+const STATUS_LABELS = { draft: 'Draft', 'in-progress': 'In Progress', complete: 'Complete' }
+const STATUS_COLORS = {
+  draft: 'status-badge--draft',
+  'in-progress': 'status-badge--in-progress',
+  complete: 'status-badge--complete',
+}
+const STATUSES_SET = new Set(['draft', 'in-progress', 'complete'])
+
+function calcAutoStatus(sections) {
+  const completed = countCompletedSections(sections)
+  if (completed === 0) return 'draft'
+  if (completed >= 10) return 'complete'
+  return 'in-progress'
+}
+
+function getDisplayStatus(business) {
+  if (business.status && STATUSES_SET.has(business.status)) return business.status
+  return calcAutoStatus(business.sections)
+}
+
+function getStatusLabel(status) {
+  return STATUS_LABELS[status] || status
+}
+
 /* ── App ────────────────────────────────────────────────────── */
 
 export default function App() {
@@ -69,10 +121,16 @@ export default function App() {
   const [selectedId, setSelectedId] = useState(null)
   const [showCreate, setShowCreate] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
+  const { isOnline, pendingCount, syncing, queueOperation, syncQueue } = useOfflineSync()
+  // Search & filter state
+  const [searchQuery, setSearchQuery] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [industryFilter, setIndustryFilter] = useState('all')
+  const debouncedSearch = useDebounced(searchQuery, 300)
 
   const load = useCallback(async () => {
     try {
-      const res = await fetch(API)
+      const res = await apiFetch(API)
       const data = await res.json()
       setBusinesses(data)
     } catch {
@@ -82,22 +140,95 @@ export default function App() {
 
   useEffect(() => { load() }, [load])
 
-  async function addBusiness(name, industry) {
-    await fetch(API, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, industry })
+  // Collect unique industries for the filter dropdown
+  const industries = useMemo(() => {
+    if (!businesses) return []
+    const set = new Set(businesses.map(b => b.industry).filter(Boolean))
+    return Array.from(set).sort()
+  }, [businesses])
+
+  // Filter businesses based on search + filters
+  const filteredBusinesses = useMemo(() => {
+    if (!businesses) return null
+    const q = debouncedSearch.trim().toLowerCase()
+    return businesses.filter(b => {
+      if (q) {
+        const name = (b.name || '').toLowerCase()
+        const industry = (b.industry || '').toLowerCase()
+        if (!name.includes(q) && !industry.includes(q)) return false
+      }
+      if (industryFilter !== 'all' && b.industry !== industryFilter) return false
+      if (statusFilter !== 'all') {
+        if (getDisplayStatus(b) !== statusFilter) return false
+      }
+      return true
     })
+  }, [businesses, debouncedSearch, statusFilter, industryFilter])
+
+  const hasActiveFilters = searchQuery.trim() || statusFilter !== 'all' || industryFilter !== 'all'
+
+  async function addBusiness(name, industry) {
+    if (!isOnline) {
+      queueOperation('POST', API, { name, industry })
+    } else {
+      await apiFetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, industry })
+      })
+    }
     setShowCreate(false)
     load()
   }
 
   async function confirmDelete() {
     if (!deleteTarget) return
-    await fetch(`${API}/${deleteTarget.id}`, { method: 'DELETE' })
+    if (!isOnline) {
+      queueOperation('DELETE', `${API}/${deleteTarget.id}`)
+    } else {
+      await apiFetch(`${API}/${deleteTarget.id}`, { method: 'DELETE' })
+    }
     if (selectedId === deleteTarget.id) setSelectedId(null)
     setDeleteTarget(null)
     load()
+  }
+
+  async function handleExport() {
+    try {
+      const res = await apiFetch('/api/export')
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'business-starter-backup.json'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      console.error('Export failed:', e)
+    }
+  }
+
+  async function handleImport(e) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    try {
+      const text = await file.text()
+      const data = JSON.parse(text)
+      const res = await apiFetch('/api/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      })
+      const result = await res.json()
+      if (!res.ok) throw new Error(result.error || 'Import failed')
+      load()
+    } catch (err) {
+      console.error('Import failed:', err)
+      alert('Import failed: ' + err.message)
+    }
+    e.target.value = ''
   }
 
   if (selectedId) {
@@ -112,9 +243,19 @@ export default function App() {
           <div className="app-header__title">Business Starter</div>
           <div className="app-header__subtitle">SCORE Business Plan Builder</div>
         </div>
+        <ThemeToggle />
       </header>
 
       <main className="dashboard">
+        <div className="dashboard__toolbar">
+          <button className="btn btn--secondary" onClick={handleExport}>
+            ⬇ Export All
+          </button>
+          <label className="btn btn--secondary" style={{ cursor: 'pointer' }}>
+            ⬆ Import
+            <input type="file" accept="application/json" style={{ display: 'none' }} onChange={handleImport} />
+          </label>
+        </div>
         {businesses === null ? (
           <div className="skeleton-grid">
             {[0,1,2].map(i => <div key={i} className="skeleton-card" />)}
@@ -129,31 +270,95 @@ export default function App() {
             </button>
           </div>
         ) : (
-          <div className="dashboard__grid">
-            <button className="create-card" onClick={() => setShowCreate(true)}>
-              <span className="create-card__icon">➕</span>
-              <span className="create-card__label">Create New Plan</span>
-              <span className="create-card__sub">Start a new business plan</span>
-            </button>
-            {businesses.map(b => {
-              const completed = countCompletedSections(b.sections)
-              const pct = Math.round((completed / 10) * 100)
-              return (
-                <div key={b.id} className="biz-card" onClick={() => setSelectedId(b.id)}>
-                  <button className="biz-card__delete" onClick={(e) => { e.stopPropagation(); setDeleteTarget({ id: b.id, name: b.name }) }}>✕</button>
-                  <div className="biz-card__name">{b.name}</div>
-                  {b.industry && <div className="biz-card__industry">{b.industry}</div>}
-                  <div className="biz-card__date">Created {formatDate(b.createdAt || b.created_at)}</div>
-                  <div className="biz-card__progress">
-                    <div className="biz-card__progress-bar">
-                      <div className="biz-card__progress-fill" style={{ width: `${pct}%` }} />
+          <>
+            {/* Search & Filter Bar */}
+            <div className="dashboard__search-filter">
+              <div className="search-bar">
+                <span className="search-bar__icon">🔍</span>
+                <input
+                  className="search-bar__input form-input"
+                  type="text"
+                  placeholder="Search by business name or industry…"
+                  value={searchQuery}
+                  onChange={e => setSearchQuery(e.target.value)}
+                />
+                {searchQuery && (
+                  <button className="search-bar__clear" onClick={() => setSearchQuery('')} title="Clear search">✕</button>
+                )}
+              </div>
+              <div className="filter-bar">
+                <select
+                  className="filter-bar__select form-input"
+                  value={statusFilter}
+                  onChange={e => setStatusFilter(e.target.value)}
+                >
+                  {STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+                </select>
+                <select
+                  className="filter-bar__select form-input"
+                  value={industryFilter}
+                  onChange={e => setIndustryFilter(e.target.value)}
+                >
+                  <option value="all">All Industries</option>
+                  {industries.map(ind => <option key={ind} value={ind}>{ind}</option>)}
+                </select>
+                {hasActiveFilters && (
+                  <button className="filter-bar__clear" onClick={() => { setSearchQuery(''); setStatusFilter('all'); setIndustryFilter('all') }}>
+                    Clear Filters
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {filteredBusinesses.length === 0 ? (
+              <div className="empty-state">
+                <div className="empty-state__icon">🔍</div>
+                <h2 className="empty-state__title">No results found</h2>
+                <p className="empty-state__text">
+                  {hasActiveFilters
+                    ? 'No business plans match your search or filters. Try adjusting your criteria.'
+                    : 'No business plans match your search.'}
+                </p>
+                {hasActiveFilters && (
+                  <button className="btn btn--secondary" onClick={() => { setSearchQuery(''); setStatusFilter('all'); setIndustryFilter('all') }}>
+                    Clear Filters
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="dashboard__grid">
+                <button className="create-card" onClick={() => setShowCreate(true)}>
+                  <span className="create-card__icon">➕</span>
+                  <span className="create-card__label">Create New Plan</span>
+                  <span className="create-card__sub">Start a new business plan</span>
+                </button>
+                {filteredBusinesses.map(b => {
+                  const completed = countCompletedSections(b.sections)
+                  const pct = Math.round((completed / 10) * 100)
+                  const status = getDisplayStatus(b)
+                  return (
+                    <div key={b.id} className="biz-card" onClick={() => setSelectedId(b.id)}>
+                      <button className="biz-card__delete" onClick={(e) => { e.stopPropagation(); setDeleteTarget({ id: b.id, name: b.name }) }}>✕</button>
+                      <div className="biz-card__top">
+                        <span className={`status-badge ${STATUS_COLORS[status]}`}>{STATUS_LABELS[status]}</span>
+                      </div>
+                      <div className="biz-card__name">{b.name}</div>
+                      {b.industry && <div className="biz-card__industry">{b.industry}</div>}
+                      <div className="biz-card__meta">
+                        <span className="biz-card__date">Created {formatDate(b.createdAt || b.created_at)}</span>
+                      </div>
+                      <div className="biz-card__progress">
+                        <div className="biz-card__progress-bar">
+                          <div className="biz-card__progress-fill" style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className="biz-card__progress-text">{completed}/10</span>
+                      </div>
                     </div>
-                    <span className="biz-card__progress-text">{completed}/10</span>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+                  )
+                })}
+              </div>
+            )}
+          </>
         )}
       </main>
 
@@ -176,7 +381,48 @@ export default function App() {
           </div>
         </div>
       )}
+
+      <OfflineIndicator isOnline={isOnline} pendingCount={pendingCount} syncing={syncing} />
     </>
+  )
+}
+
+/* ── Status Override ─────────────────────────────────────────── */
+
+function StatusOverride({ plan, onUpdate }) {
+  const current = getDisplayStatus(plan)
+  const [status, setStatus] = useState(plan.status || 'auto')
+
+  useEffect(() => {
+    setStatus(plan.status || 'auto')
+  }, [plan.id, plan.status])
+
+  async function handleChange(e) {
+    const value = e.target.value
+    setStatus(value)
+    try {
+      const res = await apiFetch(`${API}/${plan.id}/status`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: value === 'auto' ? null : value })
+      })
+      const updated = await res.json()
+      onUpdate(updated)
+    } catch (err) {
+      console.error('Status update failed:', err)
+    }
+  }
+
+  return (
+    <div className="status-override">
+      <label className="status-override__label">Status</label>
+      <select className="status-override__select form-input" value={status} onChange={handleChange}>
+        <option value="auto">Auto ({STATUS_LABELS[current]})</option>
+        <option value="draft">Draft</option>
+        <option value="in-progress">In Progress</option>
+        <option value="complete">Complete</option>
+      </select>
+    </div>
   )
 }
 
@@ -185,6 +431,36 @@ export default function App() {
 function CreateModal({ onClose, onCreate }) {
   const [name, setName] = useState('')
   const [industry, setIndustry] = useState('')
+  const [mode, setMode] = useState('blank') // 'blank' | 'template'
+  const [templates, setTemplates] = useState([])
+  const [selectedTemplate, setSelectedTemplate] = useState(null)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (mode === 'template' && templates.length === 0) {
+      fetch('/api/templates').then(r => r.json()).then(setTemplates).catch(() => {})
+    }
+  }, [mode, templates.length])
+
+  async function handleTemplateSubmit(e) {
+    e.preventDefault()
+    if (!selectedTemplate) return
+    setLoading(true)
+    try {
+      const res = await fetch('/api/businesses/from-template', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ templateId: selectedTemplate, name: name.trim() || undefined })
+      })
+      if (!res.ok) throw new Error('Failed to create from template')
+      onClose()
+      window.location.reload()
+    } catch (err) {
+      alert('Error: ' + err.message)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   function handleSubmit(e) {
     e.preventDefault()
@@ -197,20 +473,65 @@ function CreateModal({ onClose, onCreate }) {
       <div className="modal" onClick={e => e.stopPropagation()}>
         <h2 className="modal__title">New Business Plan</h2>
         <p className="modal__subtitle">Start building your SCORE business plan.</p>
-        <form onSubmit={handleSubmit}>
-          <div className="modal__field">
-            <label className="modal__label">Business Name</label>
-            <input className="form-input" placeholder="e.g. Acme Coffee Co." value={name} onChange={e => setName(e.target.value)} autoFocus />
-          </div>
-          <div className="modal__field">
-            <label className="modal__label">Industry (optional)</label>
-            <input className="form-input" placeholder="e.g. Food & Beverage" value={industry} onChange={e => setIndustry(e.target.value)} />
-          </div>
-          <div className="modal__actions">
-            <button type="button" className="btn btn--secondary" onClick={onClose}>Cancel</button>
-            <button type="submit" className="btn btn--primary" disabled={!name.trim()}>Create Plan</button>
-          </div>
-        </form>
+
+        <div className="modal__tabs">
+          <button
+            className={`modal__tab ${mode === 'blank' ? 'modal__tab--active' : ''}`}
+            onClick={() => { setMode('blank'); setSelectedTemplate(null) }}
+          >Start Blank</button>
+          <button
+            className={`modal__tab ${mode === 'template' ? 'modal__tab--active' : ''}`}
+            onClick={() => setMode('template')}
+          >From Template</button>
+        </div>
+
+        {mode === 'blank' ? (
+          <form onSubmit={handleSubmit}>
+            <div className="modal__field">
+              <label className="modal__label">Business Name</label>
+              <input className="form-input" placeholder="e.g. Acme Coffee Co." value={name} onChange={e => setName(e.target.value)} autoFocus />
+            </div>
+            <div className="modal__field">
+              <label className="modal__label">Industry (optional)</label>
+              <input className="form-input" placeholder="e.g. Food & Beverage" value={industry} onChange={e => setIndustry(e.target.value)} />
+            </div>
+            <div className="modal__actions">
+              <button type="button" className="btn btn--secondary" onClick={onClose}>Cancel</button>
+              <button type="submit" className="btn btn--primary" disabled={!name.trim()}>Create Plan</button>
+            </div>
+          </form>
+        ) : (
+          <form onSubmit={handleTemplateSubmit}>
+            <div className="modal__field">
+              <label className="modal__label">Choose a Template</label>
+              <div className="template-list">
+                {templates.map(t => (
+                  <button
+                    type="button"
+                    key={t.id}
+                    className={`template-card ${selectedTemplate === t.id ? 'template-card--selected' : ''}`}
+                    onClick={() => { setSelectedTemplate(t.id); setName(''); setIndustry('') }}
+                  >
+                    <span className="template-card__name">{t.name}</span>
+                    <span className="template-card__desc">{t.description}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            {selectedTemplate && (
+              <div className="modal__field">
+                <label className="modal__label">Business Name (optional — uses template default if blank)</label>
+                <input className="form-input" placeholder="Custom name or leave blank for template default" value={name} onChange={e => setName(e.target.value)} />
+              </div>
+            )}
+            <div className="modal__actions">
+              <button type="button" className="btn btn--secondary" onClick={onClose}>Cancel</button>
+              <button type="submit" className="btn btn--primary" disabled={!selectedTemplate || loading}>
+                {loading ? 'Creating...' : 'Create from Template'}
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   )
@@ -224,12 +545,14 @@ function PlanView({ id, onBack }) {
   const [sectionData, setSectionData] = useState({})
   const [saveStatus, setSaveStatus] = useState('idle') // 'idle' | 'saving' | 'saved'
   const [printMode, setPrintMode] = useState(false)
+  const [showShortcuts, setShowShortcuts] = useState(false)
   const saveTimerRef = useRef(null)
   const pendingDataRef = useRef(null)
   const activeTabRef = useRef('I')
+  const contentRef = useRef(null)
 
   useEffect(() => {
-    fetch(`${API}/${id}`)
+    apiFetch(`${API}/${id}`)
       .then(r => r.json())
       .then(data => {
         setPlan(data)
@@ -250,6 +573,55 @@ function PlanView({ id, onBack }) {
     activeTabRef.current = activeTab
   }, [activeTab])
 
+  // Move focus to the new section content after tab switch (accessibility)
+  useEffect(() => {
+    if (contentRef.current) {
+      contentRef.current.focus()
+    }
+  }, [activeTab])
+
+  // Keyboard shortcuts: Ctrl+Left/Right to navigate sections, Ctrl+S to save
+  useEffect(() => {
+    function handleKeyDown(e) {
+      // Ctrl+Left → previous section
+      if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowLeft' && !e.shiftKey && !e.altKey) {
+        e.preventDefault()
+        const idx = SECTIONS.findIndex(s => s.key === activeTabRef.current)
+        if (idx > 0) {
+          handleTabSwitch(SECTIONS[idx - 1].key)
+        }
+        return
+      }
+      // Ctrl+Right → next section
+      if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowRight' && !e.shiftKey && !e.altKey) {
+        e.preventDefault()
+        const idx = SECTIONS.findIndex(s => s.key === activeTabRef.current)
+        if (idx < SECTIONS.length - 1) {
+          handleTabSwitch(SECTIONS[idx + 1].key)
+        }
+        return
+      }
+      // Ctrl+S → flush save
+      if ((e.ctrlKey || e.metaKey) && e.key === 's' && !e.shiftKey && !e.altKey) {
+        e.preventDefault()
+        flushSave()
+        return
+      }
+      // '?' → toggle shortcut hints (Shift+/ = ?)
+      if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
+        setShowShortcuts(prev => !prev)
+        return
+      }
+      // Escape → close shortcut hints
+      if (e.key === 'Escape' && showShortcuts) {
+        setShowShortcuts(false)
+        return
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [flushSave, showShortcuts])
+
   // Debounced save function
   const scheduleSave = useCallback((key, content) => {
     pendingDataRef.current = { key, content }
@@ -259,18 +631,27 @@ function PlanView({ id, onBack }) {
 
     saveTimerRef.current = setTimeout(async () => {
       const { key: k, content: c } = pendingDataRef.current
-      try {
-        await fetch(`${API}/${id}/sections/${k}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ content: c })
-        })
+      const url = `${API}/${id}/sections/${k}`
+      const body = { content: c }
+      if (!navigator.onLine) {
+        // Queue for later sync
+        const queue = JSON.parse(localStorage.getItem('business-starter-offline-queue') || '[]')
+        queue.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`, method: 'PUT', url, body, ts: Date.now() })
+        localStorage.setItem('business-starter-offline-queue', JSON.stringify(queue))
         setSectionData(prev => ({ ...prev, [k]: c }))
-      } catch (e) {
-        console.error('Autosave failed:', e)
+      } else {
+        try {
+          await apiFetch(url, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          })
+          setSectionData(prev => ({ ...prev, [k]: c }))
+        } catch (e) {
+          console.error('Autosave failed:', e)
+        }
       }
       setSaveStatus('saved')
-      // Fade out saved status after 2s
       setTimeout(() => {
         setSaveStatus('idle')
       }, 2000)
@@ -285,16 +666,25 @@ function PlanView({ id, onBack }) {
       saveTimerRef.current = null
       const { key, content } = pendingDataRef.current
       if (key && content !== undefined) {
+        const url = `${API}/${id}/sections/${key}`
+        const body = { content }
         setSaveStatus('saving')
-        try {
-          await fetch(`${API}/${id}/sections/${key}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ content })
-          })
+        if (!navigator.onLine) {
+          const queue = JSON.parse(localStorage.getItem('business-starter-offline-queue') || '[]')
+          queue.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`, method: 'PUT', url, body, ts: Date.now() })
+          localStorage.setItem('business-starter-offline-queue', JSON.stringify(queue))
           setSectionData(prev => ({ ...prev, [key]: content }))
-        } catch (e) {
-          console.error('Flush save failed:', e)
+        } else {
+          try {
+            await apiFetch(url, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(body)
+            })
+            setSectionData(prev => ({ ...prev, [key]: content }))
+          } catch (e) {
+            console.error('Flush save failed:', e)
+          }
         }
         setSaveStatus('saved')
         setTimeout(() => setSaveStatus('idle'), 2000)
@@ -390,12 +780,42 @@ function PlanView({ id, onBack }) {
 
   return (
     <div className="plan-layout">
+      {/* Keyboard shortcut hints overlay */}
+      {showShortcuts && (
+        <div className="shortcut-hints" onClick={() => setShowShortcuts(false)}>
+          <div className="shortcut-hints__panel" onClick={e => e.stopPropagation()}>
+            <div className="shortcut-hints__title">Keyboard Shortcuts</div>
+            <div className="shortcut-hints__row">
+              <span className="shortcut-hints__keys"><kbd>Ctrl</kbd> + <kbd>←</kbd></span>
+              <span className="shortcut-hints__desc">Previous section</span>
+            </div>
+            <div className="shortcut-hints__row">
+              <span className="shortcut-hints__keys"><kbd>Ctrl</kbd> + <kbd>→</kbd></span>
+              <span className="shortcut-hints__desc">Next section</span>
+            </div>
+            <div className="shortcut-hints__row">
+              <span className="shortcut-hints__keys"><kbd>Ctrl</kbd> + <kbd>S</kbd></span>
+              <span className="shortcut-hints__desc">Save now</span>
+            </div>
+            <div className="shortcut-hints__row">
+              <span className="shortcut-hints__keys"><kbd>?</kbd></span>
+              <span className="shortcut-hints__desc">Toggle this help</span>
+            </div>
+            <div className="shortcut-hints__row">
+              <span className="shortcut-hints__keys"><kbd>Esc</kbd></span>
+              <span className="shortcut-hints__desc">Close this help</span>
+            </div>
+            <button className="btn btn--secondary shortcut-hints__close" onClick={() => setShowShortcuts(false)}>Close</button>
+          </div>
+        </div>
+      )}
       {/* Sidebar */}
       <aside className="plan-sidebar">
         <div className="plan-sidebar__header">
           <button className="plan-sidebar__back" onClick={onBack}>← Dashboard</button>
           <div className="plan-sidebar__biz-name">{plan.name}</div>
           {plan.industry && <div className="plan-sidebar__biz-industry">{plan.industry}</div>}
+          <StatusOverride plan={plan} onUpdate={setPlan} />
         </div>
 
         <div className="plan-progress">
@@ -440,15 +860,28 @@ function PlanView({ id, onBack }) {
           </button>
         </header>
 
-        <div className="plan-content">
+        <div
+          className="plan-content"
+          ref={contentRef}
+          tabIndex={-1}
+          aria-label={`Section ${activeTab}: ${SECTIONS.find(s => s.key === activeTab)?.label || ''}`}
+        >
           <SectionRouter
             sectionKey={activeTab}
             sectionLabel={SECTIONS.find(s => s.key === activeTab)?.label || ''}
             sectionData={sectionData[activeTab]}
+            businessId={plan.id}
             onSave={(content) => scheduleSave(activeTab, content)}
             saveStatus={saveStatus}
           />
         </div>
+
+        {/* Keyboard shortcut hint footer */}
+        <footer className="plan-footer">
+          <span className="plan-footer__hint">
+            <kbd>Ctrl</kbd>+<kbd>←</kbd>/<kbd>→</kbd> switch sections · <kbd>Ctrl</kbd>+<kbd>S</kbd> save · <kbd>?</kbd> shortcuts
+          </span>
+        </footer>
       </div>
     </div>
   )
@@ -456,7 +889,7 @@ function PlanView({ id, onBack }) {
 
 /* ── Section Router ─────────────────────────────────────────── */
 
-function SectionRouter({ sectionKey, sectionLabel, sectionData, onSave, saveStatus }) {
+function SectionRouter({ sectionKey, sectionLabel, sectionData, businessId, onSave, saveStatus }) {
   const [localData, setLocalData] = useState(null)
   const dirtyRef = useRef(false)
   const localDataRef = useRef(null)
@@ -481,10 +914,21 @@ function SectionRouter({ sectionKey, sectionLabel, sectionData, onSave, saveStat
     onSaveRef.current(newData)
   }, [])
 
+  const handleAiAccept = useCallback((draft) => {
+    const merged = { ...(localData || {}), ...draft }
+    setLocalData(merged)
+    localDataRef.current = merged
+    dirtyRef.current = true
+    onSaveRef.current(merged)
+  }, [localData])
+
   const SectionComponent = SECTION_COMPONENTS[sectionKey]
 
   return (
     <div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+        <AiDraftButton businessId={businessId} sectionId={sectionKey} onAccept={handleAiAccept} />
+      </div>
       {SectionComponent ? (
         <SectionComponent data={localData} onChange={handleChange} />
       ) : (
