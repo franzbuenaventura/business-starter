@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { getToken } from '../api.js'
 
 /* ============================================================
    useOfflineSync — queue mutations while offline, sync when back
@@ -72,23 +73,34 @@ export function useOfflineSync() {
     setSyncing(true)
 
     const remaining = []
-    for (const op of queue) {
+    for (let i = 0; i < queue.length; i++) {
+      const op = queue[i]
       try {
+        const headers = op.body ? { 'Content-Type': 'application/json' } : {}
+        const token = getToken()
+        if (token) headers['Authorization'] = `Bearer ${token}`
         const res = await fetch(op.url, {
           method: op.method,
-          headers: op.body ? { 'Content-Type': 'application/json' } : undefined,
+          headers,
           body: op.body ? JSON.stringify(op.body) : undefined,
         })
+        if (res.status === 401) {
+          // Session expired — keep this op (and the rest) queued; stop flushing.
+          // AuthGate forces re-login on the next authenticated call.
+          remaining.push(...queue.slice(i))
+          break
+        }
         if (!res.ok && res.status >= 400 && res.status < 500) {
           // Permanent failure (client error) — drop the op
           console.warn('Dropping failed op:', op, res.status)
-        } else {
-          // Success or server error (retry later on 5xx)
-          if (res.status >= 500) remaining.push(op)
+        } else if (res.status >= 500) {
+          // Server error — retry later
+          remaining.push(op)
         }
       } catch (e) {
-        // Network still down — keep in queue
-        remaining.push(op)
+        // Network still down — keep this op and the rest in queue
+        remaining.push(...queue.slice(i))
+        break
       }
     }
     writeQueue(remaining)

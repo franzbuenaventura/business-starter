@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { apiFetch } from '../api.js'
 
 /**
  * AI Draft Button — calls POST /api/ai-draft with { businessId, sectionId },
@@ -23,7 +24,7 @@ export default function AiDraftButton({ businessId, sectionId, onAccept, disable
     setDraft(null)
     setShowPreview(false)
     try {
-      const res = await fetch('/api/ai-draft', {
+      const res = await apiFetch('/api/ai-draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ businessId, sectionId }),
