@@ -580,48 +580,6 @@ function PlanView({ id, onBack }) {
     }
   }, [activeTab])
 
-  // Keyboard shortcuts: Ctrl+Left/Right to navigate sections, Ctrl+S to save
-  useEffect(() => {
-    function handleKeyDown(e) {
-      // Ctrl+Left → previous section
-      if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowLeft' && !e.shiftKey && !e.altKey) {
-        e.preventDefault()
-        const idx = SECTIONS.findIndex(s => s.key === activeTabRef.current)
-        if (idx > 0) {
-          handleTabSwitch(SECTIONS[idx - 1].key)
-        }
-        return
-      }
-      // Ctrl+Right → next section
-      if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowRight' && !e.shiftKey && !e.altKey) {
-        e.preventDefault()
-        const idx = SECTIONS.findIndex(s => s.key === activeTabRef.current)
-        if (idx < SECTIONS.length - 1) {
-          handleTabSwitch(SECTIONS[idx + 1].key)
-        }
-        return
-      }
-      // Ctrl+S → flush save
-      if ((e.ctrlKey || e.metaKey) && e.key === 's' && !e.shiftKey && !e.altKey) {
-        e.preventDefault()
-        flushSave()
-        return
-      }
-      // '?' → toggle shortcut hints (Shift+/ = ?)
-      if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
-        setShowShortcuts(prev => !prev)
-        return
-      }
-      // Escape → close shortcut hints
-      if (e.key === 'Escape' && showShortcuts) {
-        setShowShortcuts(false)
-        return
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [flushSave, showShortcuts])
-
   // Debounced save function
   const scheduleSave = useCallback((key, content) => {
     pendingDataRef.current = { key, content }
@@ -692,26 +650,53 @@ function PlanView({ id, onBack }) {
     }
   }, [id])
 
+  // Tab switching + export (declared after flushSave to avoid TDZ)
   function handleTabSwitch(newKey) {
     if (newKey === activeTab) return
-    // Flush any pending save before switching
-    if (saveTimerRef.current) {
-      flushSave()
-    }
+    if (saveTimerRef.current) flushSave()
     setActiveTab(newKey)
   }
 
   function handleExportPDF() {
     setPrintMode(true)
-    // Give React time to render all sections before printing
-    setTimeout(() => {
-      window.print()
-      setPrintMode(false)
-    }, 300)
+    setTimeout(() => { window.print(); setPrintMode(false) }, 300)
   }
 
   const completedCount = useMemo(() => countCompletedSections(sectionData), [sectionData])
   const pct = Math.round((completedCount / 10) * 100)
+
+  // Keyboard shortcuts: Ctrl+Left/Right to navigate sections, Ctrl+S to save
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowLeft' && !e.shiftKey && !e.altKey) {
+        e.preventDefault()
+        const idx = SECTIONS.findIndex(s => s.key === activeTabRef.current)
+        if (idx > 0) handleTabSwitch(SECTIONS[idx - 1].key)
+        return
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'ArrowRight' && !e.shiftKey && !e.altKey) {
+        e.preventDefault()
+        const idx = SECTIONS.findIndex(s => s.key === activeTabRef.current)
+        if (idx < SECTIONS.length - 1) handleTabSwitch(SECTIONS[idx + 1].key)
+        return
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 's' && !e.shiftKey && !e.altKey) {
+        e.preventDefault()
+        flushSave()
+        return
+      }
+      if (e.key === '?' && !e.ctrlKey && !e.metaKey) {
+        setShowShortcuts(prev => !prev)
+        return
+      }
+      if (e.key === 'Escape' && showShortcuts) {
+        setShowShortcuts(false)
+        return
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [flushSave, showShortcuts])
 
   if (!plan) {
     return (
