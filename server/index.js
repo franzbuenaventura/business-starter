@@ -588,7 +588,26 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     db.exec('ALTER TABLE businesses ADD COLUMN status TEXT')
   } catch (e) { /* column already exists */ }
 
-  function persist() { const data = db.export(); fs.writeFileSync(dbPath, Buffer.from(data)) }
+  // Durability: sql.js holds the DB in memory; persist() writes the whole file.
+  // Every write path calls persistFn, so this debounced wrapper coalesces bursts
+  // (e.g. section autosave) within 2s into one file write. A SIGTERM/SIGINT/
+  // exit hook flushes immediately so a restart can never lose the last 2s.
+  let persistTimer = null
+  function persistNow() {
+    if (persistTimer) { clearTimeout(persistTimer); persistTimer = null }
+    const data = db.export()
+    const tmp = dbPath + '.tmp'
+    fs.writeFileSync(tmp, Buffer.from(data))
+    fs.renameSync(tmp, dbPath) // atomic: never leave a half-written db
+  }
+  function persist() {
+    if (persistTimer) return // already scheduled
+    persistTimer = setTimeout(() => { persistTimer = null; persistNow() }, 2000)
+  }
+  for (const sig of ['SIGTERM', 'SIGINT']) {
+    process.on(sig, () => { try { persistNow() } catch {} process.exit(0) })
+  }
+  process.on('exit', () => { try { if (persistTimer) persistNow() } catch {} })
 
   const app = createApp(db, persist)
 
