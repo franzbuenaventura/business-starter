@@ -425,7 +425,7 @@ function createApp(db, persistFn) {
 
     const ollamaUrl = process.env.OLLAMA_URL || 'http://localhost:11434/api/chat'
     const AI_TIMEOUT_MS = Number(process.env.AI_TIMEOUT_MS) || 120000
-    const models = [process.env.OLLAMA_MODEL || 'glm-5.2:cloud', process.env.OLLAMA_FALLBACK_MODEL].filter(Boolean)
+    const models = [process.env.OLLAMA_MODEL || 'glm-5.3-flash:cloud', process.env.OLLAMA_FALLBACK_MODEL].filter(Boolean)
     let text = ''
     let lastError = null
     try {
