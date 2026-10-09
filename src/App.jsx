@@ -28,16 +28,16 @@ import './print.css'
 
 const API = '/api/businesses'
 const SECTIONS = [
-  { key: 'I', label: 'Executive Summary' },
-  { key: 'II', label: 'Company Description' },
-  { key: 'III', label: 'Products & Services' },
-  { key: 'IV', label: 'Marketing Plan' },
-  { key: 'V', label: 'Operational Plan' },
-  { key: 'VI', label: 'Management & Organization' },
-  { key: 'VII', label: 'Startup Expenses & Capitalization' },
-  { key: 'VIII', label: 'Financial Plan' },
-  { key: 'IX', label: 'Appendices' },
-  { key: 'X', label: 'Refining the Plan' },
+  { key: 'I', label: 'Executive Summary', tab: 'Summary' },
+  { key: 'II', label: 'Company Description', tab: 'Company' },
+  { key: 'III', label: 'Products & Services', tab: 'Products' },
+  { key: 'IV', label: 'Marketing Plan', tab: 'Marketing' },
+  { key: 'V', label: 'Operational Plan', tab: 'Operations' },
+  { key: 'VI', label: 'Management & Organization', tab: 'Team' },
+  { key: 'VII', label: 'Startup Expenses & Capitalization', tab: 'Startup Costs' },
+  { key: 'VIII', label: 'Financial Plan', tab: 'Financials' },
+  { key: 'IX', label: 'Appendices', tab: 'Appendices' },
+  { key: 'X', label: 'Refining the Plan', tab: 'Refining' },
 ]
 
 const SECTION_COMPONENTS = {
@@ -814,8 +814,8 @@ function PlanView({ id, onBack }) {
     <div className="min-h-screen">
       {/* Sticky plan header */}
       <div className="app-chrome sticky top-0 z-30 bg-background/85 backdrop-blur-md border-b border-divider">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="flex flex-col gap-2 py-2.5">
+        <div className="max-w-3xl mx-auto px-4 sm:px-6">
+          <div className="flex flex-col gap-1.5 py-2.5">
             <div className="flex items-center gap-3 min-w-0">
               <Button size="sm" variant="flat" onClick={onBack}>← Dashboard</Button>
               <div className="min-w-0 flex-1 flex items-baseline gap-2 justify-start">
@@ -832,7 +832,7 @@ function PlanView({ id, onBack }) {
             <div className="flex items-center gap-3 justify-between">
               <div className="flex items-center gap-3 min-w-0">
                 <StatusOverride plan={plan} onUpdate={setPlan} />
-                <div className="flex items-center gap-2 w-44">
+                <div className="flex items-center gap-2 w-40">
                   <Progress aria-label="Plan progress" size="sm" value={pct} color="primary" className="flex-1" />
                   <span className="text-xs text-foreground-500 shrink-0">{completedCount}/10</span>
                 </div>
@@ -864,7 +864,7 @@ function PlanView({ id, onBack }) {
                   title={
                     <span className="flex items-center gap-1.5 whitespace-nowrap text-xs sm:text-sm">
                       <span className={completed ? 'text-primary font-semibold' : 'text-foreground-400 font-medium'}>{s.key}</span>
-                      <span className={completed ? 'hidden md:inline text-primary' : 'hidden md:inline text-foreground'}>{s.label}</span>
+                      <span className={completed ? 'hidden md:inline text-primary' : 'hidden md:inline text-foreground'}>{s.tab || s.label}</span>
                       {completed && <span className="text-success lg:hidden">✓</span>}
                     </span>
                   }
@@ -877,7 +877,7 @@ function PlanView({ id, onBack }) {
 
       {/* Main content */}
       <div
-        className="max-w-7xl mx-auto px-4 sm:px-6 pt-6 outline-none"
+        className="max-w-3xl mx-auto px-4 sm:px-6 pt-6 outline-none"
         ref={contentRef}
         tabIndex={-1}
         aria-label={`Section ${activeTab}: ${SECTIONS.find(s => s.key === activeTab)?.label || ''}`}
@@ -963,7 +963,7 @@ function SectionRouter({ sectionKey, sectionLabel, sectionData, businessId, onSa
 
   return (
     <div>
-      <div className="flex justify-end mb-4">
+      <div className="flex justify-end mb-3">
         <AiDraftButton businessId={businessId} sectionId={sectionKey} onAccept={handleAiAccept} />
       </div>
       {SectionComponent ? (

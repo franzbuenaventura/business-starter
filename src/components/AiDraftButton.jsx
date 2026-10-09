@@ -87,7 +87,7 @@ export default function AiDraftButton({ businessId, sectionId, onAccept, disable
   return (
     <div className="inline-flex items-center gap-2">
       <Button
-        size="sm" variant="flat" color="primary"
+        size="sm" variant="light" className="text-foreground-500 hover:text-primary data-[hover=true]:bg-content3"
         isDisabled={loading || disabled}
         onClick={generate}
         startContent={loading ? <Spinner size="sm" /> : <span>✨</span>}
