@@ -244,11 +244,11 @@ export default function App() {
   return (
     <>
       <Navbar maxWidth="xl" isBordered className="app-chrome" height="3.5rem">
-        <NavbarBrand className="gap-3">
+        <NavbarBrand className="gap-2.5">
           <span className="text-xl">🚀</span>
           <div className="leading-tight">
             <div className="text-sm font-bold text-foreground">Business Starter</div>
-            <div className="text-[11px] text-foreground-500">SCORE Business Plan Builder</div>
+            <div className="text-[11px] text-foreground-500 hidden sm:block">SCORE Plan Builder</div>
           </div>
         </NavbarBrand>
         <NavbarContent justify="end" className="gap-2">
@@ -815,25 +815,33 @@ function PlanView({ id, onBack }) {
       {/* Sticky plan header */}
       <div className="app-chrome sticky top-0 z-30 bg-background/85 backdrop-blur-md border-b border-divider">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="flex items-center gap-3 py-3 flex-wrap">
-            <Button size="sm" variant="flat" onClick={onBack}>← Dashboard</Button>
-            <div className="min-w-0 flex-1">
-              <div className="text-sm font-bold truncate">{plan.name}</div>
-              {plan.industry && <div className="text-[11px] text-foreground-500 truncate">{plan.industry}</div>}
+          <div className="flex flex-col gap-2 py-2.5">
+            <div className="flex items-center gap-3 min-w-0">
+              <Button size="sm" variant="flat" onClick={onBack}>← Dashboard</Button>
+              <div className="min-w-0 flex-1 flex items-baseline gap-2 justify-start">
+                <span className="text-sm font-bold truncate">{plan.name}</span>
+                {plan.industry && <span className="text-[11px] text-foreground-500 truncate hidden sm:inline">{plan.industry}</span>}
+              </div>
+              <Chip
+                size="sm" variant="flat" color={saveColor}
+                className={saveStatus === 'idle' ? 'text-foreground-500 shrink-0' : 'shrink-0'}
+              >
+                {saveLabel}
+              </Chip>
             </div>
-            <StatusOverride plan={plan} onUpdate={setPlan} />
-            <div className="flex items-center gap-2 w-40">
-              <Progress aria-label="Plan progress" size="sm" value={pct} color="primary" className="flex-1" />
-              <span className="text-xs text-foreground-500 shrink-0">{completedCount}/10 · {pct}%</span>
+            <div className="flex items-center gap-3 justify-between">
+              <div className="flex items-center gap-3 min-w-0">
+                <StatusOverride plan={plan} onUpdate={setPlan} />
+                <div className="flex items-center gap-2 w-44">
+                  <Progress aria-label="Plan progress" size="sm" value={pct} color="primary" className="flex-1" />
+                  <span className="text-xs text-foreground-500 shrink-0">{completedCount}/10</span>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button size="sm" variant="flat" onClick={handleExportPDF}>📄 Export PDF</Button>
+                <ThemeToggle />
+              </div>
             </div>
-            <Chip
-              size="sm" variant="flat" color={saveColor}
-              className={saveStatus === 'idle' ? 'text-foreground-500' : ''}
-            >
-              {saveLabel}
-            </Chip>
-            <Button size="sm" variant="flat" onClick={handleExportPDF}>📄 Export PDF</Button>
-            <ThemeToggle />
           </div>
 
           {/* Section tabs I–X */}
@@ -856,8 +864,8 @@ function PlanView({ id, onBack }) {
                   title={
                     <span className="flex items-center gap-1.5 whitespace-nowrap text-xs sm:text-sm">
                       <span className={completed ? 'text-primary font-semibold' : 'text-foreground-400 font-medium'}>{s.key}</span>
-                      <span className="hidden md:inline">{s.label}</span>
-                      {completed && <span className="text-success">✓</span>}
+                      <span className={completed ? 'hidden md:inline text-primary' : 'hidden md:inline text-foreground'}>{s.label}</span>
+                      {completed && <span className="text-success lg:hidden">✓</span>}
                     </span>
                   }
                 />
