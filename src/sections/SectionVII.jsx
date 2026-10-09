@@ -1,5 +1,6 @@
 import { Button } from '@heroui/react'
 import { SectionPage, Group, Field, Row, SubTitle } from '../components/Fields.jsx'
+import { PHP } from '../components/FinanceKit.jsx'
 
 const inputCls = 'w-full px-2.5 py-1.5 rounded-lg bg-content1 border border-divider text-sm outline-none focus:border-primary'
 const numberCls = 'w-full px-2.5 py-1.5 rounded-lg bg-content1 border border-divider text-sm text-right outline-none focus:border-primary'
@@ -65,7 +66,7 @@ export default function SectionVII({ data, onChange }) {
                 placeholder="Source / basis (vendor quote, industry benchmark, etc.)" />
             </div>
             <div>
-              <div className={itemLabel}>Amount ($)</div>
+              <div className={itemLabel}>Amount (₱)</div>
               <input className={numberCls} type="number" min="0" step="0.01" value={expense.amount || ''}
                 onChange={e => updateExpense(index, { ...expense, amount: e.target.value })}
                 placeholder="0.00" />
@@ -81,10 +82,10 @@ export default function SectionVII({ data, onChange }) {
 
         <Button size="sm" variant="bordered" color="primary" className="mb-4" onPress={addExpense}>+ Add Expense Item</Button>
 
-        <div className={totalCls}>Total Startup Expenses: ${totalExpenses.toFixed(2)}</div>
-        <div className={totalCls}>Suggested Reserve for Contingencies (20%): ${contingencyAmount.toFixed(2)}</div>
+        <div className={totalCls}>Total Startup Expenses: ₱${PHP(totalExpenses)}</div>
+        <div className={totalCls}>Suggested Reserve for Contingencies (20%): ${PHP(contingencyAmount)}</div>
         <div className="text-base font-bold text-foreground text-right px-3 py-3 border-y-2 border-divider mt-2">
-          Total Capital Needed: ${totalWithContingency.toFixed(2)}
+          Total Capital Needed: ₱${PHP(totalWithContingency)}
         </div>
 
         <div className="mt-6">
@@ -115,7 +116,7 @@ export default function SectionVII({ data, onChange }) {
                 placeholder="Terms (rate, repayment period, collateral)" />
             </div>
             <div>
-              <div className={itemLabel}>Amount ($)</div>
+              <div className={itemLabel}>Amount (₱)</div>
               <input className={numberCls} type="number" min="0" step="0.01" value={loan.amount || ''}
                 onChange={e => updateLoan(index, { ...loan, amount: e.target.value })}
                 placeholder="0.00" />
@@ -154,7 +155,7 @@ export default function SectionVII({ data, onChange }) {
                 placeholder="Full name" />
             </div>
             <div>
-              <div className={itemLabel}>Contribution ($)</div>
+              <div className={itemLabel}>Contribution (₱)</div>
               <input className={numberCls} type="number" min="0" step="0.01" value={investor.contribution || ''}
                 onChange={e => updateInvestor(index, { ...investor, contribution: e.target.value })}
                 placeholder="0.00" />
@@ -189,25 +190,25 @@ export default function SectionVII({ data, onChange }) {
       <Group title="Opening Day Balance Sheet" hint="Capture the expected financial position of your business on the day you open — your assets, liabilities, and equity at the starting line. A well-prepared opening day balance sheet tells investors and lenders that you understand your financial position from day one.">
         <SubTitle>Assets</SubTitle>
         <Row>
-          <Field label="Cash on Hand ($)" type="number" min="0" step="0.01" value={data?.balanceCashOnHand} onChange={v => set('balanceCashOnHand', v)} />
-          <Field label="Accounts Receivable ($)" type="number" min="0" step="0.01" value={data?.balanceAccountsReceivable} onChange={v => set('balanceAccountsReceivable', v)} />
-          <Field label="Equipment ($)" type="number" min="0" step="0.01" value={data?.balanceEquipment} onChange={v => set('balanceEquipment', v)} />
-          <Field label="Inventory ($)" type="number" min="0" step="0.01" value={data?.balanceInventory} onChange={v => set('balanceInventory', v)} />
-          <Field label="Furniture & Fixtures ($)" type="number" min="0" step="0.01" value={data?.balanceFurnitureFixtures} onChange={v => set('balanceFurnitureFixtures', v)} />
-          <Field label="Other Assets ($)" type="number" min="0" step="0.01" value={data?.balanceOtherAssets} onChange={v => set('balanceOtherAssets', v)} />
+          <Field label="Cash on Hand (₱)" type="number" min="0" step="0.01" value={data?.balanceCashOnHand} onChange={v => set('balanceCashOnHand', v)} />
+          <Field label="Accounts Receivable (₱)" type="number" min="0" step="0.01" value={data?.balanceAccountsReceivable} onChange={v => set('balanceAccountsReceivable', v)} />
+          <Field label="Equipment (₱)" type="number" min="0" step="0.01" value={data?.balanceEquipment} onChange={v => set('balanceEquipment', v)} />
+          <Field label="Inventory (₱)" type="number" min="0" step="0.01" value={data?.balanceInventory} onChange={v => set('balanceInventory', v)} />
+          <Field label="Furniture & Fixtures (₱)" type="number" min="0" step="0.01" value={data?.balanceFurnitureFixtures} onChange={v => set('balanceFurnitureFixtures', v)} />
+          <Field label="Other Assets (₱)" type="number" min="0" step="0.01" value={data?.balanceOtherAssets} onChange={v => set('balanceOtherAssets', v)} />
         </Row>
 
         <SubTitle>Liabilities</SubTitle>
         <Row>
-          <Field label="Accounts Payable ($)" type="number" min="0" step="0.01" value={data?.balanceAccountsPayable} onChange={v => set('balanceAccountsPayable', v)} />
-          <Field label="Loans Payable ($)" type="number" min="0" step="0.01" value={data?.balanceLoansPayable} onChange={v => set('balanceLoansPayable', v)} />
-          <Field label="Other Liabilities ($)" type="number" min="0" step="0.01" value={data?.balanceOtherLiabilities} onChange={v => set('balanceOtherLiabilities', v)} />
+          <Field label="Accounts Payable (₱)" type="number" min="0" step="0.01" value={data?.balanceAccountsPayable} onChange={v => set('balanceAccountsPayable', v)} />
+          <Field label="Loans Payable (₱)" type="number" min="0" step="0.01" value={data?.balanceLoansPayable} onChange={v => set('balanceLoansPayable', v)} />
+          <Field label="Other Liabilities (₱)" type="number" min="0" step="0.01" value={data?.balanceOtherLiabilities} onChange={v => set('balanceOtherLiabilities', v)} />
         </Row>
 
         <SubTitle>Equity</SubTitle>
         <Row>
-          <Field label="Owner's Investment ($)" type="number" min="0" step="0.01" value={data?.balanceOwnersInvestment} onChange={v => set('balanceOwnersInvestment', v)} />
-          <Field label="Retained Earnings ($)" type="number" min="0" step="0.01" value={data?.balanceRetainedEarnings} onChange={v => set('balanceRetainedEarnings', v)} />
+          <Field label="Owner's Investment (₱)" type="number" min="0" step="0.01" value={data?.balanceOwnersInvestment} onChange={v => set('balanceOwnersInvestment', v)} />
+          <Field label="Retained Earnings (₱)" type="number" min="0" step="0.01" value={data?.balanceRetainedEarnings} onChange={v => set('balanceRetainedEarnings', v)} />
         </Row>
       </Group>
 
@@ -232,7 +233,7 @@ export default function SectionVII({ data, onChange }) {
           tall
         />
         <Field
-          label="Total Personal Capital Invested ($)"
+          label="Total Personal Capital Invested (₱)"
           hint="Sum of all personal funds owners are contributing to startup costs."
           type="number" min="0" step="0.01"
           value={data?.totalPersonalCapital}
