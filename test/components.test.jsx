@@ -1,7 +1,26 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import React from 'react'
-import SectionI from '../src/sections/SectionI.jsx'
+import { renderRich } from '../src/components/RichText.jsx'
+
+// RichText mounts a ProseMirror editor, which jsdom can't drive reliably.
+// Swap it for a plain textarea that calls onChange with the stored HTML —
+// the behavioral contract sections depend on stays identical.
+vi.mock('../src/components/RichText.jsx', async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    default: ({ value, onChange }) => (
+      <textarea
+        aria-label="rich text editor"
+        value={String(value ?? '')}
+        onChange={e => onChange && onChange(e.target.value)}
+      />
+    ),
+  }
+})
+
+const SectionI = (await import('../src/sections/SectionI.jsx')).default
 
 describe('SectionI', () => {
   it('renders the Executive Summary heading', () => {
@@ -18,14 +37,13 @@ describe('SectionI', () => {
     const onChange = vi.fn()
     const { container } = render(<SectionI data={{}} onChange={onChange} />)
 
-    // Find the first textarea directly
-    const textarea = container.querySelector('textarea')
-    expect(textarea).not.toBeNull()
+    const editor = container.querySelector('textarea')
+    expect(editor).not.toBeNull()
 
-    // Use fireEvent.input since some jsdom setups handle input better
-    fireEvent.input(textarea, { target: { value: 'My new business idea' } })
+    fireEvent.input(editor, { target: { value: 'My new business idea' } })
 
     expect(onChange).toHaveBeenCalledTimes(1)
+    expect(onChange.mock.calls[0][0]).toMatchObject({ businessIdea: 'My new business idea' })
   })
 
   it('merges existing data with updated field', () => {
@@ -33,25 +51,40 @@ describe('SectionI', () => {
     const onChange = vi.fn()
     const { container } = render(<SectionI data={existingData} onChange={onChange} />)
 
-    // Find the textarea after the "Target Market" label
-    const labels = container.querySelectorAll('label')
-    let targetTextarea = null
-    for (const label of labels) {
-      if (label.textContent.toLowerCase().includes('target market')) {
-        // The textarea should be the next sibling or inside the parent div
-        const parent = label.closest('div')
-        targetTextarea = parent ? parent.querySelector('textarea') : null
-        break
-      }
-    }
-    expect(targetTextarea).not.toBeNull()
+    // Find the field wrapper whose label reads "Target Market", then its editor
+    const label = Array.from(container.querySelectorAll('div'))
+      .find(el => el.textContent.trim() === 'Target Market')
+    expect(label).toBeTruthy()
+    const targetEditor = label.parentElement.querySelector('textarea')
+    expect(targetEditor).not.toBeNull()
 
-    fireEvent.input(targetTextarea, { target: { value: 'Developers' } })
+    fireEvent.input(targetEditor, { target: { value: 'Developers' } })
 
     expect(onChange).toHaveBeenCalledWith({
       businessIdea: 'Old idea',
       targetMarket: 'Developers',
     })
+  })
+})
+
+describe('renderRich (render pipeline)', () => {
+  it('sanitizes stored HTML on render', () => {
+    const html = renderRich('<p>ok</p><img src=x onerror=alert(1)>')
+    expect(html).toContain('<p>ok</p>')
+    expect(html).not.toContain('onerror')
+    expect(html).not.toContain('alert(1)')
+  })
+
+  it('renders legacy plaintext as-is (escaped, paragraphs preserved)', () => {
+    const html = renderRich('Line one <not a tag>\n\nLine two')
+    expect(html).toContain('Line one &lt;not a tag&gt;')
+    expect(html).toContain('Line two')
+    expect(html).toMatch(/<p>.*<\/p>/)
+  })
+
+  it('returns empty string for empty values', () => {
+    expect(renderRich('')).toBe('')
+    expect(renderRich(null)).toBe('')
   })
 })
 

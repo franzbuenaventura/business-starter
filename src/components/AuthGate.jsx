@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
+import { Card, CardBody, Input, Button } from '@heroui/react'
 import { apiFetch, getToken, setToken, clearToken } from '../api.js'
-import './AuthGate.css'
 
 /**
  * AuthGate – wraps the app and handles:
@@ -78,9 +78,9 @@ export default function AuthGate({ children }) {
 
   if (status === 'loading') {
     return (
-      <div className="auth-gate__loading">
-        <div className="auth-gate__spinner" />
-        <p>Loading…</p>
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 bg-background text-foreground-500">
+        <div className="w-8 h-8 rounded-full border-2 border-divider border-t-primary animate-spin" />
+        <p className="text-sm">Loading…</p>
       </div>
     )
   }
@@ -96,6 +96,23 @@ export default function AuthGate({ children }) {
   return children
 }
 
+/* ── PIN Card shell ─────────────────────────────────────────── */
+
+function AuthCard({ icon, title, subtitle, children }) {
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+      <Card shadow="none" className="border border-divider bg-content1 w-full max-w-sm">
+        <CardBody className="px-6 py-8 flex flex-col items-center text-center">
+          <div className="text-4xl mb-3">🔐</div>
+          <h1 className="text-xl font-bold text-foreground mb-1">{title}</h1>
+          <p className="text-sm text-foreground-500 mb-6 leading-relaxed">{subtitle}</p>
+          {children}
+        </CardBody>
+      </Card>
+    </div>
+  )
+}
+
 /* ── Setup Screen (first launch) ────────────────────────────── */
 
 function SetupScreen({ onSubmit, error }) {
@@ -108,44 +125,29 @@ function SetupScreen({ onSubmit, error }) {
   }
 
   return (
-    <div className="auth-gate">
-      <div className="auth-gate__card">
-        <div className="auth-gate__icon">🔐</div>
-        <h1 className="auth-gate__title">Set Up Your PIN</h1>
-        <p className="auth-gate__subtitle">
-          First time here? Create a PIN to secure your business plans.
-          You'll need this PIN every time you access the app.
-        </p>
-        <form onSubmit={handleSubmit}>
-          <div className="auth-gate__field">
-            <label className="auth-gate__label">Create PIN</label>
-            <input
-              className="form-input"
-              type="password"
-              placeholder="At least 4 characters"
-              value={pin}
-              onChange={e => setPin(e.target.value)}
-              autoFocus
-              inputMode="numeric"
-            />
-          </div>
-          <div className="auth-gate__field">
-            <label className="auth-gate__label">Confirm PIN</label>
-            <input
-              className="form-input"
-              type="password"
-              placeholder="Re-enter your PIN"
-              value={confirmPin}
-              onChange={e => setConfirmPin(e.target.value)}
-            />
-          </div>
-          {error && <div className="auth-gate__error">{error}</div>}
-          <button type="submit" className="btn btn--primary auth-gate__submit">
-            Create PIN
-          </button>
-        </form>
-      </div>
-    </div>
+    <AuthCard
+      title="Set Up Your PIN"
+      subtitle="First time here? Create a PIN to secure your business plans. You'll need this PIN every time you access the app."
+    >
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4 w-full">
+        <Input
+          type="password" variant="bordered" label="Create PIN"
+          placeholder="At least 4 characters"
+          value={pin}
+          onValueChange={setPin}
+          autoFocus
+          inputMode="numeric"
+        />
+        <Input
+          type="password" variant="bordered" label="Confirm PIN"
+          placeholder="Re-enter your PIN"
+          value={confirmPin}
+          onValueChange={setConfirmPin}
+        />
+        {error && <div className="text-xs text-danger px-3 py-2 rounded-lg bg-danger-100/20">{error}</div>}
+        <Button type="submit" color="primary" className="w-full">Create PIN</Button>
+      </form>
+    </AuthCard>
   )
 }
 
@@ -160,32 +162,19 @@ function LoginScreen({ onSubmit, error }) {
   }
 
   return (
-    <div className="auth-gate">
-      <div className="auth-gate__card">
-        <div className="auth-gate__icon">🔐</div>
-        <h1 className="auth-gate__title">Enter Your PIN</h1>
-        <p className="auth-gate__subtitle">
-          Enter your PIN to access your business plans.
-        </p>
-        <form onSubmit={handleSubmit}>
-          <div className="auth-gate__field">
-            <label className="auth-gate__label">PIN</label>
-            <input
-              className="form-input"
-              type="password"
-              placeholder="Enter your PIN"
-              value={pin}
-              onChange={e => setPin(e.target.value)}
-              autoFocus
-              inputMode="numeric"
-            />
-          </div>
-          {error && <div className="auth-gate__error">{error}</div>}
-          <button type="submit" className="btn btn--primary auth-gate__submit">
-            Unlock
-          </button>
-        </form>
-      </div>
-    </div>
+    <AuthCard title="Enter Your PIN" subtitle="Enter your PIN to access your business plans.">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-4 w-full">
+        <Input
+          type="password" variant="bordered" label="PIN"
+          placeholder="Enter your PIN"
+          value={pin}
+          onValueChange={setPin}
+          autoFocus
+          inputMode="numeric"
+        />
+        {error && <div className="text-xs text-danger px-3 py-2 rounded-lg bg-danger-100/20">{error}</div>}
+        <Button type="submit" color="primary" className="w-full">Unlock</Button>
+      </form>
+    </AuthCard>
   )
 }

@@ -2,18 +2,12 @@
 
 @media print {
   /* Hide app chrome */
-  .plan-sidebar,
-  .plan-header,
-  .save-bar,
-  .save-status,
-  .app-header,
-  .plan-progress,
-  .plan-nav,
+  .app-chrome,
+  .no-print,
   button {
     display: none !important;
   }
 
-  /* Page setup */
   @page {
     margin: 1in;
   }
@@ -24,16 +18,6 @@
     font-family: Georgia, 'Times New Roman', serif !important;
     font-size: 12pt !important;
     line-height: 1.6 !important;
-  }
-
-  /* Layout: single column, full width */
-  .plan-layout {
-    display: block !important;
-    min-height: auto !important;
-  }
-
-  .plan-main {
-    display: block !important;
   }
 
   .plan-content {
@@ -51,17 +35,6 @@
     page-break-after: auto;
   }
 
-  /* Headings: sans-serif, bold */
-  .print-section__title {
-    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif !important;
-    font-size: 18pt !important;
-    font-weight: 700 !important;
-    color: #000 !important;
-    border-bottom: 2px solid #000 !important;
-    padding-bottom: 4pt !important;
-    margin-bottom: 12pt !important;
-  }
-
   .print-section__number {
     font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif !important;
     font-size: 10pt !important;
@@ -72,16 +45,19 @@
     margin-bottom: 2pt !important;
   }
 
-  /* Ensure form fields render as readable text in print */
-  .form-input,
-  .form-textarea {
-    border: 1px solid #999 !important;
-    background: #fff !important;
+  .print-section__title {
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif !important;
+    font-size: 18pt !important;
+    font-weight: 700 !important;
     color: #000 !important;
-    box-shadow: none !important;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
+    border-bottom: 2px solid #000 !important;
+    padding-bottom: 4pt !important;
+    margin-bottom: 12pt !important;
   }
+
+  /* Rendered rich text reads as normal document text */
+  .rt-view, .rt-content { font-family: inherit !important; }
+  .rt-view a { color: #000 !important; text-decoration: none !important; }
 
   /* Business name header on first page */
   .print-doc-header {

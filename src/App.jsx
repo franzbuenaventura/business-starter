@@ -1,24 +1,11 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
-
-/* ── Debounce Hook ─────────────────────────────────────────── */
-
-function useDebounced(value, delay = 300) {
-  const [debounced, setDebounced] = useState(value)
-  useEffect(() => {
-    const t = setTimeout(() => setDebounced(value), delay)
-    return () => clearTimeout(t)
-  }, [value, delay])
-  return debounced
-}
-
-/* ── Status Helpers ────────────────────────────────────────── */
-
-const STATUS_OPTIONS = [
-  { value: 'all', label: 'All Statuses' },
-  { value: 'draft', label: 'Draft' },
-  { value: 'in-progress', label: 'In Progress' },
-  { value: 'complete', label: 'Complete' },
-]
+import {
+  Navbar, NavbarBrand, NavbarContent,
+  Card, CardBody,
+  Button, Input, Select, SelectItem,
+  Chip, Progress, Tabs, Tab,
+  Modal, ModalContent, ModalHeader, ModalBody, ModalFooter,
+} from '@heroui/react'
 
 import SectionI from './sections/SectionI.jsx'
 import SectionII from './sections/SectionII.jsx'
@@ -33,6 +20,7 @@ import SectionX from './sections/SectionX.jsx'
 import ThemeToggle from './components/ThemeToggle.jsx'
 import OfflineIndicator from './components/OfflineIndicator.jsx'
 import AiDraftButton from './components/AiDraftButton.jsx'
+import { PrintModeContext } from './components/RichText.jsx'
 import { useOfflineSync } from './hooks/useOfflineSync.js'
 import { apiFetch, clearToken } from './api.js'
 import './styles.css'
@@ -57,6 +45,13 @@ const SECTION_COMPONENTS = {
   V: SectionV, VI: SectionVI, VII: SectionVII, VIII: SectionVIII,
   IX: SectionIX, X: SectionX,
 }
+
+const STATUS_OPTIONS = [
+  { value: 'all', label: 'All Statuses' },
+  { value: 'draft', label: 'Draft' },
+  { value: 'in-progress', label: 'In Progress' },
+  { value: 'complete', label: 'Complete' },
+]
 
 /* ── Helpers ────────────────────────────────────────────────── */
 
@@ -91,10 +86,10 @@ function formatDate(ts) {
 /* ── Status helpers ─────────────────────────────────────────── */
 
 const STATUS_LABELS = { draft: 'Draft', 'in-progress': 'In Progress', complete: 'Complete' }
-const STATUS_COLORS = {
-  draft: 'status-badge--draft',
-  'in-progress': 'status-badge--in-progress',
-  complete: 'status-badge--complete',
+const STATUS_CHIP = {
+  draft: { color: 'warning', variant: 'flat' },
+  'in-progress': { color: 'primary', variant: 'flat' },
+  complete: { color: 'success', variant: 'flat' },
 }
 const STATUSES_SET = new Set(['draft', 'in-progress', 'complete'])
 
@@ -112,6 +107,17 @@ function getDisplayStatus(business) {
 
 function getStatusLabel(status) {
   return STATUS_LABELS[status] || status
+}
+
+/* ── Debounce Hook ─────────────────────────────────────────── */
+
+function useDebounced(value, delay = 300) {
+  const [debounced, setDebounced] = useState(value)
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(value), delay)
+    return () => clearTimeout(t)
+  }, [value, delay])
+  return debounced
 }
 
 /* ── App ────────────────────────────────────────────────────── */
@@ -237,123 +243,145 @@ export default function App() {
 
   return (
     <>
-      <header className="app-header">
-        <span className="app-header__logo">🚀</span>
-        <div>
-          <div className="app-header__title">Business Starter</div>
-          <div className="app-header__subtitle">SCORE Business Plan Builder</div>
-        </div>
-        <ThemeToggle />
-      </header>
-
-      <main className="dashboard">
-        <div className="dashboard__toolbar">
-          <button className="btn btn--secondary" onClick={handleExport}>
-            ⬇ Export All
-          </button>
-          <label className="btn btn--secondary" style={{ cursor: 'pointer' }}>
-            ⬆ Import
-            <input type="file" accept="application/json" style={{ display: 'none' }} onChange={handleImport} />
+      <Navbar maxWidth="xl" isBordered className="app-chrome" height="3.5rem">
+        <NavbarBrand className="gap-3">
+          <span className="text-xl">🚀</span>
+          <div className="leading-tight">
+            <div className="text-sm font-bold text-foreground">Business Starter</div>
+            <div className="text-[11px] text-foreground-500">SCORE Business Plan Builder</div>
+          </div>
+        </NavbarBrand>
+        <NavbarContent justify="end" className="gap-2">
+          <Button size="sm" variant="flat" className="no-print" onClick={handleExport}>⬇ Export All</Button>
+          <label className="no-print cursor-pointer">
+            <input type="file" accept="application/json" className="hidden" onChange={handleImport} />
+            <span className="inline-flex items-center h-8 px-3 rounded-lg bg-content2 text-foreground text-sm font-medium hover:bg-content3 transition-colors">⬆ Import</span>
           </label>
-        </div>
+          <ThemeToggle />
+        </NavbarContent>
+      </Navbar>
+
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-6 pb-20">
         {businesses === null ? (
-          <div className="skeleton-grid">
-            {[0,1,2].map(i => <div key={i} className="skeleton-card" />)}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {[0,1,2].map(i => (
+              <div key={i} className="h-52 rounded-2xl border border-divider bg-content1 animate-pulse" />
+            ))}
           </div>
         ) : businesses.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-state__icon">📋</div>
-            <h2 className="empty-state__title">No business plans yet</h2>
-            <p className="empty-state__text">Create your first business plan to get started with the 10-section SCORE builder.</p>
-            <button className="btn btn--primary" onClick={() => setShowCreate(true)}>
-              + Create Your First Plan
-            </button>
+          <div className="text-center py-24">
+            <div className="text-5xl mb-4">📋</div>
+            <h2 className="text-xl font-bold mb-2">No business plans yet</h2>
+            <p className="text-sm text-foreground-500 mb-6 max-w-md mx-auto">
+              Create your first business plan to get started with the 10-section SCORE builder.
+            </p>
+            <Button color="primary" onClick={() => setShowCreate(true)}>+ Create Your First Plan</Button>
           </div>
         ) : (
           <>
             {/* Search & Filter Bar */}
-            <div className="dashboard__search-filter">
-              <div className="search-bar">
-                <span className="search-bar__icon">🔍</span>
-                <input
-                  className="search-bar__input form-input"
-                  type="text"
-                  placeholder="Search by business name or industry…"
-                  value={searchQuery}
-                  onChange={e => setSearchQuery(e.target.value)}
-                />
-                {searchQuery && (
-                  <button className="search-bar__clear" onClick={() => setSearchQuery('')} title="Clear search">✕</button>
-                )}
-              </div>
-              <div className="filter-bar">
-                <select
-                  className="filter-bar__select form-input"
-                  value={statusFilter}
-                  onChange={e => setStatusFilter(e.target.value)}
+            <div className="flex flex-col sm:flex-row gap-3 mb-6">
+              <Input
+                isClearable
+                size="sm"
+                variant="bordered"
+                placeholder="Search by business name or industry…"
+                value={searchQuery}
+                onValueChange={setSearchQuery}
+                onClear={() => setSearchQuery('')}
+                startContent={<span>🔍</span>}
+                className="sm:max-w-xs"
+              />
+              <div className="flex gap-3 flex-wrap items-center">
+                <Select
+                  size="sm" variant="bordered" aria-label="Filter by status"
+                  className="w-40"
+                  selectedKeys={[statusFilter]}
+                  onSelectionChange={keys => setStatusFilter(Array.from(keys)[0] ?? 'all')}
                 >
-                  {STATUS_OPTIONS.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                </select>
-                <select
-                  className="filter-bar__select form-input"
-                  value={industryFilter}
-                  onChange={e => setIndustryFilter(e.target.value)}
+                  {STATUS_OPTIONS.map(s => <SelectItem key={s.value}>{s.label}</SelectItem>)}
+                </Select>
+                <Select
+                  size="sm" variant="bordered" aria-label="Filter by industry"
+                  className="w-44"
+                  selectedKeys={[industryFilter]}
+                  onSelectionChange={keys => setIndustryFilter(Array.from(keys)[0] ?? 'all')}
                 >
-                  <option value="all">All Industries</option>
-                  {industries.map(ind => <option key={ind} value={ind}>{ind}</option>)}
-                </select>
+                  <SelectItem key="all">All Industries</SelectItem>
+                  {industries.map(ind => <SelectItem key={ind}>{ind}</SelectItem>)}
+                </Select>
                 {hasActiveFilters && (
-                  <button className="filter-bar__clear" onClick={() => { setSearchQuery(''); setStatusFilter('all'); setIndustryFilter('all') }}>
+                  <Button size="sm" variant="light" className="text-foreground-500"
+                    onClick={() => { setSearchQuery(''); setStatusFilter('all'); setIndustryFilter('all') }}>
                     Clear Filters
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>
 
             {filteredBusinesses.length === 0 ? (
-              <div className="empty-state">
-                <div className="empty-state__icon">🔍</div>
-                <h2 className="empty-state__title">No results found</h2>
-                <p className="empty-state__text">
+              <div className="text-center py-24">
+                <div className="text-5xl mb-4">🔍</div>
+                <h2 className="text-xl font-bold mb-2">No results found</h2>
+                <p className="text-sm text-foreground-500 mb-6 max-w-md mx-auto">
                   {hasActiveFilters
                     ? 'No business plans match your search or filters. Try adjusting your criteria.'
                     : 'No business plans match your search.'}
                 </p>
                 {hasActiveFilters && (
-                  <button className="btn btn--secondary" onClick={() => { setSearchQuery(''); setStatusFilter('all'); setIndustryFilter('all') }}>
+                  <Button variant="flat" onClick={() => { setSearchQuery(''); setStatusFilter('all'); setIndustryFilter('all') }}>
                     Clear Filters
-                  </button>
+                  </Button>
                 )}
               </div>
             ) : (
-              <div className="dashboard__grid">
-                <button className="create-card" onClick={() => setShowCreate(true)}>
-                  <span className="create-card__icon">➕</span>
-                  <span className="create-card__label">Create New Plan</span>
-                  <span className="create-card__sub">Start a new business plan</span>
-                </button>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <Card
+                  isPressable shadow="none"
+                  className="border border-dashed border-divider bg-content1/40 hover:border-primary min-h-52 justify-center"
+                  onPress={() => setShowCreate(true)}
+                >
+                  <CardBody className="items-center gap-2 py-10">
+                    <span className="text-3xl">➕</span>
+                    <span className="text-sm font-semibold">Create New Plan</span>
+                    <span className="text-xs text-foreground-500">Start a new business plan</span>
+                  </CardBody>
+                </Card>
                 {filteredBusinesses.map(b => {
                   const completed = countCompletedSections(b.sections)
                   const pct = Math.round((completed / 10) * 100)
                   const status = getDisplayStatus(b)
                   return (
-                    <div key={b.id} className="biz-card" onClick={() => setSelectedId(b.id)}>
-                      <button className="biz-card__delete" onClick={(e) => { e.stopPropagation(); setDeleteTarget({ id: b.id, name: b.name }) }}>✕</button>
-                      <div className="biz-card__top">
-                        <span className={`status-badge ${STATUS_COLORS[status]}`}>{STATUS_LABELS[status]}</span>
-                      </div>
-                      <div className="biz-card__name">{b.name}</div>
-                      {b.industry && <div className="biz-card__industry">{b.industry}</div>}
-                      <div className="biz-card__meta">
-                        <span className="biz-card__date">Created {formatDate(b.createdAt || b.created_at)}</span>
-                      </div>
-                      <div className="biz-card__progress">
-                        <div className="biz-card__progress-bar">
-                          <div className="biz-card__progress-fill" style={{ width: `${pct}%` }} />
+                    <Card
+                      key={b.id}
+                      isPressable shadow="none"
+                      className="border border-divider bg-content1 hover:border-primary/60 transition-colors"
+                      onPress={() => setSelectedId(b.id)}
+                    >
+                      <CardBody className="px-5 py-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <Chip size="sm" variant="flat" {...STATUS_CHIP[status]}>{STATUS_LABELS[status]}</Chip>
+                          <Button
+                            isIconOnly size="sm" variant="light" radius="full"
+                            className="text-foreground-500 hover:text-danger"
+                            aria-label={`Delete ${b.name}`}
+                            onPress={e => { e?.stopPropagation?.(); setDeleteTarget({ id: b.id, name: b.name }) }}
+                          >
+                            ✕
+                          </Button>
                         </div>
-                        <span className="biz-card__progress-text">{completed}/10</span>
-                      </div>
-                    </div>
+                        <div className="text-lg font-bold text-foreground leading-snug mb-0.5">{b.name}</div>
+                        {b.industry && <div className="text-sm text-foreground-500 mb-1">{b.industry}</div>}
+                        <div className="text-xs text-foreground-400 mb-4">Created {formatDate(b.createdAt || b.created_at)}</div>
+                        <div className="flex items-center gap-3">
+                          <Progress
+                            aria-label={`${b.name} progress`}
+                            size="sm" value={pct} color="primary" className="flex-1"
+                          />
+                          <span className="text-xs font-medium text-foreground-500 shrink-0">{completed}/10</span>
+                        </div>
+                      </CardBody>
+                    </Card>
                   )
                 })}
               </div>
@@ -362,25 +390,31 @@ export default function App() {
         )}
       </main>
 
-      {showCreate && (
-        <CreateModal onClose={() => setShowCreate(false)} onCreate={addBusiness} />
-      )}
+      <CreateModal isOpen={showCreate} onClose={() => setShowCreate(false)} onCreate={addBusiness} />
 
-      {deleteTarget && (
-        <div className="modal-overlay" onClick={() => setDeleteTarget(null)}>
-          <div className="modal confirm" onClick={e => e.stopPropagation()}>
-            <div className="confirm__icon">⚠️</div>
-            <div className="confirm__text">
-              Delete <strong>{deleteTarget.name}</strong>?<br />
-              This action cannot be undone.
-            </div>
-            <div className="modal__actions">
-              <button className="btn btn--secondary" onClick={() => setDeleteTarget(null)}>Cancel</button>
-              <button className="btn btn--danger" onClick={confirmDelete}>Delete Plan</button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal
+        isOpen={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        size="sm"
+      >
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader className="flex-col gap-1">
+                <span className="text-2xl">⚠️</span>
+                <span>Delete plan</span>
+              </ModalHeader>
+              <ModalBody>
+                Delete <strong>{deleteTarget?.name}</strong>? This action cannot be undone.
+              </ModalBody>
+              <ModalFooter>
+                <Button variant="flat" onPress={onClose}>Cancel</Button>
+                <Button color="danger" onPress={confirmDelete}>Delete Plan</Button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
 
       <OfflineIndicator isOnline={isOnline} pendingCount={pendingCount} syncing={syncing} />
     </>
@@ -397,8 +431,7 @@ function StatusOverride({ plan, onUpdate }) {
     setStatus(plan.status || 'auto')
   }, [plan.id, plan.status])
 
-  async function handleChange(e) {
-    const value = e.target.value
+  async function handleChange(value) {
     setStatus(value)
     try {
       const res = await apiFetch(`${API}/${plan.id}/status`, {
@@ -414,21 +447,23 @@ function StatusOverride({ plan, onUpdate }) {
   }
 
   return (
-    <div className="status-override">
-      <label className="status-override__label">Status</label>
-      <select className="status-override__select form-input" value={status} onChange={handleChange}>
-        <option value="auto">Auto ({STATUS_LABELS[current]})</option>
-        <option value="draft">Draft</option>
-        <option value="in-progress">In Progress</option>
-        <option value="complete">Complete</option>
-      </select>
-    </div>
+    <Select
+      size="sm" variant="bordered" aria-label="Plan status"
+      className="w-40"
+      selectedKeys={[status]}
+      onSelectionChange={keys => handleChange(Array.from(keys)[0] ?? 'auto')}
+    >
+      <SelectItem key="auto">Auto ({STATUS_LABELS[current]})</SelectItem>
+      <SelectItem key="draft">Draft</SelectItem>
+      <SelectItem key="in-progress">In Progress</SelectItem>
+      <SelectItem key="complete">Complete</SelectItem>
+    </Select>
   )
 }
 
 /* ── Create Modal ───────────────────────────────────────────── */
 
-function CreateModal({ onClose, onCreate }) {
+function CreateModal({ isOpen, onClose, onCreate }) {
   const [name, setName] = useState('')
   const [industry, setIndustry] = useState('')
   const [mode, setMode] = useState('blank') // 'blank' | 'template'
@@ -442,8 +477,17 @@ function CreateModal({ onClose, onCreate }) {
     }
   }, [mode, templates.length])
 
+  useEffect(() => {
+    if (!isOpen) {
+      setName('')
+      setIndustry('')
+      setMode('blank')
+      setSelectedTemplate(null)
+    }
+  }, [isOpen])
+
   async function handleTemplateSubmit(e) {
-    e.preventDefault()
+    if (e?.preventDefault) e.preventDefault()
     if (!selectedTemplate) return
     setLoading(true)
     try {
@@ -463,77 +507,84 @@ function CreateModal({ onClose, onCreate }) {
   }
 
   function handleSubmit(e) {
-    e.preventDefault()
+    if (e?.preventDefault) e.preventDefault()
     if (!name.trim()) return
     onCreate(name.trim(), industry.trim())
   }
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal" onClick={e => e.stopPropagation()}>
-        <h2 className="modal__title">New Business Plan</h2>
-        <p className="modal__subtitle">Start building your SCORE business plan.</p>
+    <Modal isOpen={isOpen} onClose={onClose} size="lg">
+      <ModalContent>
+        <ModalHeader>New Business Plan</ModalHeader>
+        <ModalBody>
+          <Tabs
+            size="sm" variant="underlined"
+            selectedKey={mode}
+            onSelectionChange={key => { setMode(key); setSelectedTemplate(null) }}
+          >
+            <Tab key="blank" title="Start Blank" />
+            <Tab key="template" title="From Template" />
+          </Tabs>
 
-        <div className="modal__tabs">
-          <button
-            className={`modal__tab ${mode === 'blank' ? 'modal__tab--active' : ''}`}
-            onClick={() => { setMode('blank'); setSelectedTemplate(null) }}
-          >Start Blank</button>
-          <button
-            className={`modal__tab ${mode === 'template' ? 'modal__tab--active' : ''}`}
-            onClick={() => setMode('template')}
-          >From Template</button>
-        </div>
-
-        {mode === 'blank' ? (
-          <form onSubmit={handleSubmit}>
-            <div className="modal__field">
-              <label className="modal__label">Business Name</label>
-              <input className="form-input" placeholder="e.g. Acme Coffee Co." value={name} onChange={e => setName(e.target.value)} autoFocus />
-            </div>
-            <div className="modal__field">
-              <label className="modal__label">Industry (optional)</label>
-              <input className="form-input" placeholder="e.g. Food & Beverage" value={industry} onChange={e => setIndustry(e.target.value)} />
-            </div>
-            <div className="modal__actions">
-              <button type="button" className="btn btn--secondary" onClick={onClose}>Cancel</button>
-              <button type="submit" className="btn btn--primary" disabled={!name.trim()}>Create Plan</button>
-            </div>
-          </form>
-        ) : (
-          <form onSubmit={handleTemplateSubmit}>
-            <div className="modal__field">
-              <label className="modal__label">Choose a Template</label>
-              <div className="template-list">
+          {mode === 'blank' ? (
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4 pt-2 pb-2">
+              <Input
+                label="Business Name" variant="bordered"
+                placeholder="e.g. Acme Coffee Co."
+                value={name}
+                onValueChange={setName}
+                autoFocus
+                isRequired
+              />
+              <Input
+                label="Industry (optional)" variant="bordered"
+                placeholder="e.g. Food & Beverage"
+                value={industry}
+                onValueChange={setIndustry}
+              />
+            </form>
+          ) : (
+            <form onSubmit={handleTemplateSubmit} className="flex flex-col gap-4 pt-2 pb-2">
+              <div className="text-sm font-medium">Choose a Template</div>
+              <div className="flex flex-col gap-2">
                 {templates.map(t => (
                   <button
-                    type="button"
-                    key={t.id}
-                    className={`template-card ${selectedTemplate === t.id ? 'template-card--selected' : ''}`}
+                    type="button" key={t.id}
+                    className={`text-left px-4 py-3 rounded-xl border transition-colors ${
+                      selectedTemplate === t.id
+                        ? 'border-primary bg-primary-100/30'
+                        : 'border-divider bg-content1 hover:border-foreground-400'
+                    }`}
                     onClick={() => { setSelectedTemplate(t.id); setName(''); setIndustry('') }}
                   >
-                    <span className="template-card__name">{t.name}</span>
-                    <span className="template-card__desc">{t.description}</span>
+                    <span className="block text-sm font-semibold">{t.name}</span>
+                    <span className="block text-xs text-foreground-500">{t.description}</span>
                   </button>
                 ))}
               </div>
-            </div>
-            {selectedTemplate && (
-              <div className="modal__field">
-                <label className="modal__label">Business Name (optional — uses template default if blank)</label>
-                <input className="form-input" placeholder="Custom name or leave blank for template default" value={name} onChange={e => setName(e.target.value)} />
-              </div>
-            )}
-            <div className="modal__actions">
-              <button type="button" className="btn btn--secondary" onClick={onClose}>Cancel</button>
-              <button type="submit" className="btn btn--primary" disabled={!selectedTemplate || loading}>
-                {loading ? 'Creating...' : 'Create from Template'}
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
-    </div>
+              {selectedTemplate && (
+                <Input
+                  label="Business Name (optional — uses template default if blank)" variant="bordered"
+                  placeholder="Custom name or leave blank for template default"
+                  value={name}
+                  onValueChange={setName}
+                />
+              )}
+            </form>
+          )}
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="flat" onPress={onClose}>Cancel</Button>
+          {mode === 'blank' ? (
+            <Button color="primary" isDisabled={!name.trim()} onClick={handleSubmit}>Create Plan</Button>
+          ) : (
+            <Button color="primary" isDisabled={!selectedTemplate || loading} onClick={handleTemplateSubmit}>
+              {loading ? 'Creating…' : 'Create from Template'}
+            </Button>
+          )}
+        </ModalFooter>
+      </ModalContent>
+    </Modal>
   )
 }
 
@@ -617,7 +668,8 @@ function PlanView({ id, onBack }) {
     }, 1500)
   }, [id])
 
-  // Flush pending save immediately (used on tab switch)
+  // Flush pending save immediately (used on tab switch) — declared before the
+  // keyboard effect that references it (TDZ guard, see commit e858e22).
   const flushSave = useCallback(async () => {
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current)
@@ -700,17 +752,10 @@ function PlanView({ id, onBack }) {
 
   if (!plan) {
     return (
-      <div className="plan-layout">
-        <div className="plan-sidebar">
-          <div className="plan-sidebar__header">
-            <button className="plan-sidebar__back" onClick={onBack}>← Back</button>
-          </div>
-        </div>
-        <div className="plan-main">
-          <div className="spinner">
-            <div className="spinner__ring" />
-            <div className="spinner__text">Loading plan…</div>
-          </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Button size="sm" variant="flat" className="mb-6" onClick={onBack}>← Back</Button>
+          <div className="text-sm text-foreground-500">Loading plan…</div>
         </div>
       </div>
     )
@@ -718,13 +763,11 @@ function PlanView({ id, onBack }) {
 
   if (plan.error) {
     return (
-      <div className="plan-layout">
-        <div className="plan-main">
-          <div className="spinner">
-            <div className="empty-state__icon">⚠️</div>
-            <div className="spinner__text">Failed to load plan.</div>
-            <button className="btn btn--secondary" onClick={onBack}>← Back</button>
-          </div>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-4xl mb-3">⚠️</div>
+          <div className="text-sm text-foreground-500 mb-6">Failed to load plan.</div>
+          <Button variant="flat" onClick={onBack}>← Back</Button>
         </div>
       </div>
     )
@@ -733,141 +776,142 @@ function PlanView({ id, onBack }) {
   // ── Print Mode: render all sections stacked ──
   if (printMode) {
     return (
-      <div className="plan-layout">
-        <div className="plan-main">
-          <div className="plan-content">
-            <div className="print-doc-header">
-              <div className="print-doc-header__name">{plan.name}</div>
-              {plan.industry && <div className="print-doc-header__industry">{plan.industry}</div>}
-              <hr className="print-doc-header__rule" />
-            </div>
-            {SECTIONS.map(s => {
-              const SectionComponent = SECTION_COMPONENTS[s.key]
-              const raw = sectionData[s.key]
-              const parsed = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {}
-              return (
-                <div className="print-section" key={s.key}>
-                  <div className="print-section__number">Section {s.key}</div>
-                  <h2 className="print-section__title">{s.label}</h2>
-                  {SectionComponent ? (
-                    <SectionComponent data={parsed} onChange={() => {}} />
-                  ) : (
-                    <div>Section not available.</div>
-                  )}
-                </div>
-              )
-            })}
+      <PrintModeContext.Provider value={true}>
+        <div className="max-w-4xl mx-auto px-4 py-8">
+          <div className="print-doc-header">
+            <div className="print-doc-header__name">{plan.name}</div>
+            {plan.industry && <div className="print-doc-header__industry">{plan.industry}</div>}
+            <hr className="print-doc-header__rule" />
           </div>
+          {SECTIONS.map(s => {
+            const SectionComponent = SECTION_COMPONENTS[s.key]
+            const raw = sectionData[s.key]
+            let parsed = {}
+            if (raw) {
+              try { parsed = typeof raw === 'string' ? JSON.parse(raw) : raw } catch { parsed = {} }
+            }
+            return (
+              <div className="print-section mb-10" key={s.key}>
+                <div className="print-section__number">Section {s.key}</div>
+                <h2 className="print-section__title text-2xl font-bold border-b-2 border-black pb-1 mb-4">{s.label}</h2>
+                {SectionComponent ? (
+                  <SectionComponent data={parsed} onChange={() => {}} />
+                ) : (
+                  <div>Section not available.</div>
+                )}
+              </div>
+            )
+          })}
         </div>
-      </div>
+      </PrintModeContext.Provider>
     )
   }
 
+  const saveLabel = saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved ✓' : 'All changes saved'
+  const saveColor = saveStatus === 'saving' ? 'warning' : saveStatus === 'saved' ? 'success' : 'default'
+
   return (
-    <div className="plan-layout">
-      {/* Keyboard shortcut hints overlay */}
-      {showShortcuts && (
-        <div className="shortcut-hints" onClick={() => setShowShortcuts(false)}>
-          <div className="shortcut-hints__panel" onClick={e => e.stopPropagation()}>
-            <div className="shortcut-hints__title">Keyboard Shortcuts</div>
-            <div className="shortcut-hints__row">
-              <span className="shortcut-hints__keys"><kbd>Ctrl</kbd> + <kbd>←</kbd></span>
-              <span className="shortcut-hints__desc">Previous section</span>
+    <div className="min-h-screen">
+      {/* Sticky plan header */}
+      <div className="app-chrome sticky top-0 z-30 bg-background/85 backdrop-blur-md border-b border-divider">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="flex items-center gap-3 py-3 flex-wrap">
+            <Button size="sm" variant="flat" onClick={onBack}>← Dashboard</Button>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-bold truncate">{plan.name}</div>
+              {plan.industry && <div className="text-[11px] text-foreground-500 truncate">{plan.industry}</div>}
             </div>
-            <div className="shortcut-hints__row">
-              <span className="shortcut-hints__keys"><kbd>Ctrl</kbd> + <kbd>→</kbd></span>
-              <span className="shortcut-hints__desc">Next section</span>
+            <StatusOverride plan={plan} onUpdate={setPlan} />
+            <div className="flex items-center gap-2 w-40">
+              <Progress aria-label="Plan progress" size="sm" value={pct} color="primary" className="flex-1" />
+              <span className="text-xs text-foreground-500 shrink-0">{completedCount}/10 · {pct}%</span>
             </div>
-            <div className="shortcut-hints__row">
-              <span className="shortcut-hints__keys"><kbd>Ctrl</kbd> + <kbd>S</kbd></span>
-              <span className="shortcut-hints__desc">Save now</span>
-            </div>
-            <div className="shortcut-hints__row">
-              <span className="shortcut-hints__keys"><kbd>?</kbd></span>
-              <span className="shortcut-hints__desc">Toggle this help</span>
-            </div>
-            <div className="shortcut-hints__row">
-              <span className="shortcut-hints__keys"><kbd>Esc</kbd></span>
-              <span className="shortcut-hints__desc">Close this help</span>
-            </div>
-            <button className="btn btn--secondary shortcut-hints__close" onClick={() => setShowShortcuts(false)}>Close</button>
+            <Chip
+              size="sm" variant="flat" color={saveColor}
+              className={saveStatus === 'idle' ? 'text-foreground-500' : ''}
+            >
+              {saveLabel}
+            </Chip>
+            <Button size="sm" variant="flat" onClick={handleExportPDF}>📄 Export PDF</Button>
+            <ThemeToggle />
           </div>
-        </div>
-      )}
-      {/* Sidebar */}
-      <aside className="plan-sidebar">
-        <div className="plan-sidebar__header">
-          <button className="plan-sidebar__back" onClick={onBack}>← Dashboard</button>
-          <div className="plan-sidebar__biz-name">{plan.name}</div>
-          {plan.industry && <div className="plan-sidebar__biz-industry">{plan.industry}</div>}
-          <StatusOverride plan={plan} onUpdate={setPlan} />
-        </div>
 
-        <div className="plan-progress">
-          <div className="plan-progress__bar">
-            <div className="plan-progress__fill" style={{ width: `${pct}%` }} />
-          </div>
-          <div className="plan-progress__text">{completedCount}/10 sections completed · {pct}%</div>
+          {/* Section tabs I–X */}
+          <Tabs
+            variant="underlined"
+            selectedKey={activeTab}
+            onSelectionChange={key => handleTabSwitch(String(key))}
+            classNames={{
+              base: 'overflow-x-auto',
+              tabList: 'gap-0',
+              tab: 'h-10 px-3 data-[hover-unselected]:opacity-100',
+              cursor: 'w-full',
+            }}
+          >
+            {SECTIONS.map(s => {
+              const completed = hasSectionData(sectionData[s.key])
+              return (
+                <Tab
+                  key={s.key}
+                  title={
+                    <span className="flex items-center gap-1.5 whitespace-nowrap text-xs sm:text-sm">
+                      <span className={completed ? 'text-primary font-semibold' : 'text-foreground-400 font-medium'}>{s.key}</span>
+                      <span className="hidden md:inline">{s.label}</span>
+                      {completed && <span className="text-success">✓</span>}
+                    </span>
+                  }
+                />
+              )
+            })}
+          </Tabs>
         </div>
-
-        <nav className="plan-nav">
-          {SECTIONS.map(s => {
-            const completed = hasSectionData(sectionData[s.key])
-            const active = activeTab === s.key
-            return (
-              <button
-                key={s.key}
-                className={`plan-nav__item ${active ? 'plan-nav__item--active' : ''} ${completed ? 'plan-nav__item--completed' : ''}`}
-                onClick={() => handleTabSwitch(s.key)}
-              >
-                <span className="plan-nav__num">
-                  {completed && !active ? '✓' : s.key}
-                </span>
-                <span className="plan-nav__label">{s.label}</span>
-                {completed && active && <span className="plan-nav__check">✓</span>}
-              </button>
-            )
-          })}
-        </nav>
-      </aside>
+      </div>
 
       {/* Main content */}
-      <div className="plan-main">
-        <header className="plan-header">
-          <span className="plan-header__title">Section {activeTab}</span>
-          <span className="plan-header__badge">{SECTIONS.find(s => s.key === activeTab)?.label}</span>
-          <div className="plan-header__status save-status">
-            <span className={`plan-header__status-dot ${saveStatus === 'saving' ? 'plan-header__status-dot--saving' : 'plan-header__status-dot--saved'}`} style={{ opacity: saveStatus === 'idle' ? 0.3 : 1 }} />
-            {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved ✓' : 'All changes saved'}
-          </div>
-          <button className="btn btn--secondary plan-header__export" onClick={handleExportPDF}>
-            📄 Export PDF
-          </button>
-        </header>
-
-        <div
-          className="plan-content"
-          ref={contentRef}
-          tabIndex={-1}
-          aria-label={`Section ${activeTab}: ${SECTIONS.find(s => s.key === activeTab)?.label || ''}`}
-        >
-          <SectionRouter
-            sectionKey={activeTab}
-            sectionLabel={SECTIONS.find(s => s.key === activeTab)?.label || ''}
-            sectionData={sectionData[activeTab]}
-            businessId={plan.id}
-            onSave={(content) => scheduleSave(activeTab, content)}
-            saveStatus={saveStatus}
-          />
-        </div>
-
-        {/* Keyboard shortcut hint footer */}
-        <footer className="plan-footer">
-          <span className="plan-footer__hint">
-            <kbd>Ctrl</kbd>+<kbd>←</kbd>/<kbd>→</kbd> switch sections · <kbd>Ctrl</kbd>+<kbd>S</kbd> save · <kbd>?</kbd> shortcuts
-          </span>
-        </footer>
+      <div
+        className="max-w-7xl mx-auto px-4 sm:px-6 pt-6 outline-none"
+        ref={contentRef}
+        tabIndex={-1}
+        aria-label={`Section ${activeTab}: ${SECTIONS.find(s => s.key === activeTab)?.label || ''}`}
+      >
+        <SectionRouter
+          sectionKey={activeTab}
+          sectionLabel={SECTIONS.find(s => s.key === activeTab)?.label || ''}
+          sectionData={sectionData[activeTab]}
+          businessId={plan.id}
+          onSave={(content) => scheduleSave(activeTab, content)}
+          saveStatus={saveStatus}
+        />
       </div>
+
+      {/* Keyboard shortcut hint footer */}
+      <footer className="app-chrome max-w-7xl mx-auto px-4 sm:px-6 pb-6 text-xs text-foreground-400">
+        <kbd>Ctrl</kbd>+<kbd>←</kbd>/<kbd>→</kbd> switch sections · <kbd>Ctrl</kbd>+<kbd>S</kbd> save · <kbd>?</kbd> shortcuts
+      </footer>
+
+      {/* Keyboard shortcut hints modal */}
+      <Modal isOpen={showShortcuts} onClose={() => setShowShortcuts(false)} size="sm">
+        <ModalContent>
+          <ModalHeader>Keyboard Shortcuts</ModalHeader>
+          <ModalBody>
+            {[
+              ['Ctrl + ←', 'Previous section'],
+              ['Ctrl + →', 'Next section'],
+              ['Ctrl + S', 'Save now'],
+              ['?', 'Toggle this help'],
+              ['Esc', 'Close this help'],
+            ].map(([keys, desc]) => (
+              <div key={keys} className="flex justify-between items-center text-sm">
+                <span className="font-mono text-xs bg-content2 px-2 py-1 rounded-md border border-divider">{keys}</span>
+                <span className="text-foreground-500">{desc}</span>
+              </div>
+            ))}
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="flat" onPress={() => setShowShortcuts(false)}>Close</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </div>
   )
 }
@@ -911,23 +955,21 @@ function SectionRouter({ sectionKey, sectionLabel, sectionData, businessId, onSa
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+      <div className="flex justify-end mb-4">
         <AiDraftButton businessId={businessId} sectionId={sectionKey} onAccept={handleAiAccept} />
       </div>
       {SectionComponent ? (
         <SectionComponent data={localData} onChange={handleChange} />
       ) : (
-        <div className="empty-state">
-          <div className="empty-state__icon">🚧</div>
-          <div className="empty-state__title">Section not found</div>
-          <div className="empty-state__text">This section component could not be loaded.</div>
+        <div className="text-center py-16">
+          <div className="text-4xl mb-3">🚧</div>
+          <div className="font-semibold mb-1">Section not found</div>
+          <div className="text-sm text-foreground-500">This section component could not be loaded.</div>
         </div>
       )}
 
-      <div className="save-bar save-status">
-        <div className="save-bar__status">
-          {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved ✓' : 'All changes saved'}
-        </div>
+      <div className="mt-8 text-center text-xs text-foreground-400">
+        {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved ✓' : 'All changes saved'}
       </div>
     </div>
   )

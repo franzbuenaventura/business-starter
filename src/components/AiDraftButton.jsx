@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react'
+import { Button, Modal, ModalContent, ModalHeader, ModalBody, ModalFooter, Spinner } from '@heroui/react'
 import { apiFetch } from '../api.js'
 
 /**
@@ -60,51 +61,41 @@ export default function AiDraftButton({ businessId, sectionId, onAccept, disable
 
   if (showPreview && draft) {
     return (
-      <div style={previewStyles.overlay}>
-        <div style={previewStyles.card}>
-          <div style={previewStyles.header}>
-            <span style={previewStyles.icon}>✨</span>
-            <span style={previewStyles.title}>AI Draft Preview</span>
-          </div>
-          <div style={previewStyles.body}>
+      <Modal isOpen onClose={handleReject} size="lg" backdrop="blur">
+        <ModalContent>
+          <ModalHeader className="gap-2"><span>✨</span> AI Draft Preview</ModalHeader>
+          <ModalBody>
             {Object.entries(draft).map(([key, val]) => (
-              <div key={key} style={previewStyles.field}>
-                <div style={previewStyles.fieldLabel}>{formatLabel(key)}</div>
-                <div style={previewStyles.fieldValue}>{String(val)}</div>
+              <div key={key}>
+                <div className="text-xs font-semibold text-foreground-500 mb-1">{formatLabel(key)}</div>
+                <div className="text-sm leading-relaxed whitespace-pre-wrap px-3 py-2 rounded-lg bg-content2 border border-divider">
+                  {String(val)}
+                </div>
               </div>
             ))}
-          </div>
-          <div style={previewStyles.actions}>
-            <button className="btn btn--secondary" onClick={handleReject}>Reject</button>
-            <button className="btn btn--secondary" onClick={() => { handleAccept() }}>Edit & Accept</button>
-            <button className="btn btn--primary" onClick={handleAccept}>Accept</button>
-          </div>
-        </div>
-      </div>
+          </ModalBody>
+          <ModalFooter>
+            <Button size="sm" variant="flat" onPress={handleReject}>Reject</Button>
+            <Button size="sm" variant="flat" onPress={handleAccept}>Edit & Accept</Button>
+            <Button size="sm" color="primary" onPress={handleAccept}>Accept</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     )
   }
 
   return (
-    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-      <button
-        className="btn btn--secondary"
-        disabled={loading || disabled}
+    <div className="inline-flex items-center gap-2">
+      <Button
+        size="sm" variant="flat" color="primary"
+        isDisabled={loading || disabled}
         onClick={generate}
-        style={loading ? { opacity: 0.6, cursor: 'wait' } : {}}
+        startContent={loading ? <Spinner size="sm" /> : <span>✨</span>}
       >
-        {loading ? (
-          <>
-            <span style={spinnerStyle} />
-            Generating…
-          </>
-        ) : (
-          <>✨ AI Draft</>
-        )}
-      </button>
+        {loading ? 'Generating…' : 'AI Draft'}
+      </Button>
       {error && (
-        <span style={{ fontSize: 12, color: '#e53935' }}>
-          ⚠ {error}
-        </span>
+        <span className="text-xs text-danger">⚠ {error}</span>
       )}
     </div>
   )
@@ -116,79 +107,4 @@ function formatLabel(key) {
     .replace(/([A-Z])/g, ' $1')
     .replace(/^./, c => c.toUpperCase())
     .trim()
-}
-
-const spinnerStyle = {
-  display: 'inline-block',
-  width: 14,
-  height: 14,
-  border: '2px solid #ccc',
-  borderTopColor: '#666',
-  borderRadius: '50%',
-  animation: 'ai-spin 0.6s linear infinite',
-}
-
-const previewStyles = {
-  overlay: {
-    position: 'fixed',
-    inset: 0,
-    background: 'rgba(0,0,0,0.35)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1000,
-  },
-  card: {
-    background: 'var(--bg-card, #fff)',
-    borderRadius: 12,
-    maxWidth: 640,
-    width: '90%',
-    maxHeight: '80vh',
-    overflow: 'hidden',
-    display: 'flex',
-    flexDirection: 'column',
-    boxShadow: '0 8px 32px rgba(0,0,0,0.2)',
-  },
-  header: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    padding: '16px 20px',
-    borderBottom: '1px solid #e0e0e0',
-    fontSize: 16,
-    fontWeight: 600,
-  },
-  icon: { fontSize: 20 },
-  title: { fontSize: 16, fontWeight: 600 },
-  body: {
-    padding: '20px',
-    overflowY: 'auto',
-    flex: 1,
-  },
-  field: {
-    marginBottom: 16,
-  },
-  fieldLabel: {
-    fontSize: 13,
-    fontWeight: 600,
-    color: '#555',
-    marginBottom: 4,
-  },
-  fieldValue: {
-    fontSize: 14,
-    lineHeight: 1.5,
-    color: '#333',
-    whiteSpace: 'pre-wrap',
-    padding: '8px 12px',
-    background: 'var(--bg-hover, #f5f5f5)',
-    borderRadius: 6,
-    border: '1px solid #e8e8e8',
-  },
-  actions: {
-    display: 'flex',
-    justifyContent: 'flex-end',
-    gap: 8,
-    padding: '12px 20px',
-    borderTop: '1px solid #e0e0e0',
-  },
 }

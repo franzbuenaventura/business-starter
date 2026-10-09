@@ -1,812 +1,251 @@
-import { useCallback } from "react";
+import { Button } from '@heroui/react'
+import { SectionPage, Group, Field, Row, SubTitle } from '../components/Fields.jsx'
 
-const styles = {
-  container: {
-    fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-    maxWidth: 800,
-    margin: "0 auto",
-    padding: "24px 16px",
-  },
-  heading: {
-    fontSize: 28,
-    fontWeight: 700,
-    margin: "0 0 4px 0",
-    color: "#1a1a2e",
-  },
-  subheading: {
-    fontSize: 14,
-    color: "#666",
-    margin: "0 0 24px 0",
-    lineHeight: 1.5,
-  },
-  sectionGroup: {
-    marginBottom: 32,
-  },
-  groupTitle: {
-    fontSize: 18,
-    fontWeight: 600,
-    color: "#1a1a2e",
-    margin: "0 0 12px 0",
-    paddingBottom: 6,
-    borderBottom: "2px solid #e0e0e0",
-  },
-  fieldGroup: {
-    marginBottom: 20,
-  },
-  label: {
-    display: "block",
-    fontSize: 14,
-    fontWeight: 600,
-    color: "#333",
-    marginBottom: 6,
-  },
-  hint: {
-    display: "block",
-    fontSize: 12,
-    color: "#888",
-    marginBottom: 6,
-    fontStyle: "italic",
-  },
-  input: {
-    width: "100%",
-    padding: "10px 12px",
-    fontSize: 15,
-    border: "1px solid #ccc",
-    borderRadius: 6,
-    boxSizing: "border-box",
-    fontFamily: "inherit",
-    lineHeight: 1.4,
-    outline: "none",
-    transition: "border-color 0.15s ease",
-  },
-  numberInput: {
-    width: "100%",
-    padding: "10px 12px",
-    fontSize: 15,
-    border: "1px solid #ccc",
-    borderRadius: 6,
-    boxSizing: "border-box",
-    fontFamily: "inherit",
-    lineHeight: 1.4,
-    outline: "none",
-    transition: "border-color 0.15s ease",
-    textAlign: "right",
-  },
-  textarea: {
-    width: "100%",
-    padding: "10px 12px",
-    fontSize: 15,
-    border: "1px solid #ccc",
-    borderRadius: 6,
-    boxSizing: "border-box",
-    fontFamily: "inherit",
-    lineHeight: 1.5,
-    resize: "vertical",
-    minHeight: 80,
-    outline: "none",
-    transition: "border-color 0.15s ease",
-  },
-  textareaTall: {
-    width: "100%",
-    padding: "10px 12px",
-    fontSize: 15,
-    border: "1px solid #ccc",
-    borderRadius: 6,
-    boxSizing: "border-box",
-    fontFamily: "inherit",
-    lineHeight: 1.5,
-    resize: "vertical",
-    minHeight: 120,
-    outline: "none",
-    transition: "border-color 0.15s ease",
-  },
-  grid2: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    gap: 16,
-  },
-  grid3: {
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr 1fr",
-    gap: 12,
-  },
-  expenseRow: {
-    display: "grid",
-    gridTemplateColumns: "1fr 180px",
-    gap: 12,
-    alignItems: "end",
-    marginBottom: 12,
-    padding: 12,
-    backgroundColor: "#fafafa",
-    borderRadius: 6,
-    border: "1px solid #eee",
-  },
-  addButton: {
-    padding: "8px 16px",
-    fontSize: 13,
-    fontWeight: 600,
-    color: "#4a90d9",
-    background: "none",
-    border: "1px dashed #4a90d9",
-    borderRadius: 6,
-    cursor: "pointer",
-    fontFamily: "inherit",
-    marginTop: 4,
-  },
-  removeButton: {
-    padding: "4px 10px",
-    fontSize: 12,
-    fontWeight: 600,
-    color: "#d32f2f",
-    background: "none",
-    border: "1px solid #d32f2f",
-    borderRadius: 4,
-    cursor: "pointer",
-    fontFamily: "inherit",
-  },
-  expenseItem: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 4,
-  },
-  totalLine: {
-    fontSize: 14,
-    fontWeight: 600,
-    color: "#1a1a2e",
-    textAlign: "right",
-    padding: "8px 12px",
-    borderTop: "1px solid #ccc",
-    marginTop: 4,
-  },
-};
-
-function Input({ label, hint, value, onChange, field, type = "text", placeholder }) {
-  const handleChange = useCallback(
-    (e) => {
-      onChange(field, e.target.value);
-    },
-    [onChange, field]
-  );
-
-  const inputStyle = type === "number" ? styles.numberInput : styles.input;
-
-  return (
-    <div style={styles.fieldGroup}>
-      <label style={styles.label}>{label}</label>
-      {hint && <span style={styles.hint}>{hint}</span>}
-      <input
-        style={inputStyle}
-        type={type}
-        value={value || ""}
-        onChange={handleChange}
-        placeholder={placeholder || ""}
-        onFocus={(e) => (e.target.style.borderColor = "#4a90d9")}
-        onBlur={(e) => (e.target.style.borderColor = "#ccc")}
-      />
-    </div>
-  );
-}
-
-function Textarea({ label, hint, value, onChange, field, tall, rows }) {
-  const handleChange = useCallback(
-    (e) => {
-      onChange(field, e.target.value);
-    },
-    [onChange, field]
-  );
-
-  const inputStyle = tall ? styles.textareaTall : styles.textarea;
-
-  return (
-    <div style={styles.fieldGroup}>
-      <label style={styles.label}>{label}</label>
-      {hint && <span style={styles.hint}>{hint}</span>}
-      <textarea
-        style={inputStyle}
-        value={value || ""}
-        onChange={handleChange}
-        rows={rows || 3}
-        onFocus={(e) => (e.target.style.borderColor = "#4a90d9")}
-        onBlur={(e) => (e.target.style.borderColor = "#ccc")}
-      />
-    </div>
-  );
-}
-
-function ExpenseItem({
-  expense,
-  index,
-  onUpdate,
-  onRemove,
-}) {
-  const handleChange = (field, value) => {
-    onUpdate(index, { ...expense, [field]: value });
-  };
-
-  return (
-    <div style={styles.expenseRow}>
-      <div style={styles.expenseItem}>
-        <label style={{ ...styles.label, marginBottom: 2, fontSize: 12 }}>
-          Expense Description
-        </label>
-        <input
-          style={styles.input}
-          type="text"
-          value={expense.description || ""}
-          onChange={(e) => handleChange("description", e.target.value)}
-          placeholder="e.g. Equipment, legal fees, marketing materials"
-          onFocus={(e) => (e.target.style.borderColor = "#4a90d9")}
-          onBlur={(e) => (e.target.style.borderColor = "#ccc")}
-        />
-        <input
-          style={{ ...styles.input, marginTop: 4, fontSize: 12 }}
-          type="text"
-          value={expense.source || ""}
-          onChange={(e) => handleChange("source", e.target.value)}
-          placeholder="Source / basis (vendor quote, industry benchmark, etc.)"
-          onFocus={(e) => (e.target.style.borderColor = "#4a90d9")}
-          onBlur={(e) => (e.target.style.borderColor = "#ccc")}
-        />
-      </div>
-      <div style={styles.expenseItem}>
-        <label style={{ ...styles.label, marginBottom: 2, fontSize: 12 }}>
-          Amount ($)
-        </label>
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <input
-            style={styles.numberInput}
-            type="number"
-            min="0"
-            step="0.01"
-            value={expense.amount || ""}
-            onChange={(e) => handleChange("amount", e.target.value)}
-            placeholder="0.00"
-            onFocus={(e) => (e.target.style.borderColor = "#4a90d9")}
-            onBlur={(e) => (e.target.style.borderColor = "#ccc")}
-          />
-          {index > 0 && (
-            <button
-              type="button"
-              style={styles.removeButton}
-              onClick={() => onRemove(index)}
-            >
-              ✕
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function LoanItem({
-  loan,
-  index,
-  onUpdate,
-  onRemove,
-}) {
-  const handleChange = (field, value) => {
-    onUpdate(index, { ...loan, [field]: value });
-  };
-
-  return (
-    <div style={styles.expenseRow}>
-      <div style={styles.expenseItem}>
-        <label style={{ ...styles.label, marginBottom: 2, fontSize: 12 }}>
-          Loan Source
-        </label>
-        <input
-          style={styles.input}
-          type="text"
-          value={loan.source || ""}
-          onChange={(e) => handleChange("source", e.target.value)}
-          placeholder="e.g. Bank of America, SBA"
-          onFocus={(e) => (e.target.style.borderColor = "#4a90d9")}
-          onBlur={(e) => (e.target.style.borderColor = "#ccc")}
-        />
-        <input
-          style={{ ...styles.input, marginTop: 4, fontSize: 12 }}
-          type="text"
-          value={loan.terms || ""}
-          onChange={(e) => handleChange("terms", e.target.value)}
-          placeholder="Terms (rate, repayment period, collateral)"
-          onFocus={(e) => (e.target.style.borderColor = "#4a90d9")}
-          onBlur={(e) => (e.target.style.borderColor = "#ccc")}
-        />
-      </div>
-      <div style={styles.expenseItem}>
-        <label style={{ ...styles.label, marginBottom: 2, fontSize: 12 }}>
-          Amount ($)
-        </label>
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <input
-            style={styles.numberInput}
-            type="number"
-            min="0"
-            step="0.01"
-            value={loan.amount || ""}
-            onChange={(e) => handleChange("amount", e.target.value)}
-            placeholder="0.00"
-            onFocus={(e) => (e.target.style.borderColor = "#4a90d9")}
-            onBlur={(e) => (e.target.style.borderColor = "#ccc")}
-          />
-          {index > 0 && (
-            <button
-              type="button"
-              style={styles.removeButton}
-              onClick={() => onRemove(index)}
-            >
-              ✕
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function InvestorItem({
-  investor,
-  index,
-  onUpdate,
-  onRemove,
-}) {
-  const handleChange = (field, value) => {
-    onUpdate(index, { ...investor, [field]: value });
-  };
-
-  return (
-    <div style={styles.expenseRow}>
-      <div style={styles.expenseItem}>
-        <label style={{ ...styles.label, marginBottom: 2, fontSize: 12 }}>
-          Investor Name
-        </label>
-        <input
-          style={styles.input}
-          type="text"
-          value={investor.name || ""}
-          onChange={(e) => handleChange("name", e.target.value)}
-          placeholder="Full name"
-          onFocus={(e) => (e.target.style.borderColor = "#4a90d9")}
-          onBlur={(e) => (e.target.style.borderColor = "#ccc")}
-        />
-      </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, alignItems: "end" }}>
-        <div style={styles.expenseItem}>
-          <label style={{ ...styles.label, marginBottom: 2, fontSize: 12 }}>
-            Contribution ($)
-          </label>
-          <input
-            style={styles.numberInput}
-            type="number"
-            min="0"
-            step="0.01"
-            value={investor.contribution || ""}
-            onChange={(e) => handleChange("contribution", e.target.value)}
-            placeholder="0.00"
-            onFocus={(e) => (e.target.style.borderColor = "#4a90d9")}
-            onBlur={(e) => (e.target.style.borderColor = "#ccc")}
-          />
-        </div>
-        <div style={{ display: "flex", gap: 6, alignItems: "end" }}>
-          <div style={styles.expenseItem}>
-            <label style={{ ...styles.label, marginBottom: 2, fontSize: 12 }}>
-              Ownership %
-            </label>
-            <input
-              style={styles.numberInput}
-              type="number"
-              min="0"
-              max="100"
-              step="0.1"
-              value={investor.ownershipPercent || ""}
-              onChange={(e) => handleChange("ownershipPercent", e.target.value)}
-              placeholder="0.0"
-              onFocus={(e) => (e.target.style.borderColor = "#4a90d9")}
-              onBlur={(e) => (e.target.style.borderColor = "#ccc")}
-            />
-          </div>
-          {index > 0 && (
-            <button
-              type="button"
-              style={{ ...styles.removeButton, marginBottom: 10 }}
-              onClick={() => onRemove(index)}
-            >
-              ✕
-            </button>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
+const inputCls = 'w-full px-2.5 py-1.5 rounded-lg bg-content1 border border-divider text-sm outline-none focus:border-primary'
+const numberCls = 'w-full px-2.5 py-1.5 rounded-lg bg-content1 border border-divider text-sm text-right outline-none focus:border-primary'
+const itemLabel = 'text-[11px] font-medium text-foreground-500 mb-1'
+const totalCls = 'text-sm font-semibold text-foreground text-right px-3 py-2 border-t border-divider mt-1'
 
 export default function SectionVII({ data, onChange }) {
-  const handleChange = useCallback(
-    (field, value) => {
-      onChange({ ...(data || {}), [field]: value });
-    },
-    [data, onChange]
-  );
+  const set = (field, value) => onChange && onChange({ ...(data || {}), [field]: value })
 
-  const expenses = data?.expenses || [
-    { description: "", source: "", amount: "" },
-  ];
-  const loans = data?.loans || [{ source: "", amount: "", terms: "" }];
-  const investors = data?.investors || [{ name: "", contribution: "", ownershipPercent: "" }];
+  const expenses = data?.expenses || [{ description: '', source: '', amount: '' }]
+  const loans = data?.loans || [{ source: '', amount: '', terms: '' }]
+  const investors = data?.investors || [{ name: '', contribution: '', ownershipPercent: '' }]
 
-  const addExpense = () => {
-    const updated = [...expenses, { description: "", source: "", amount: "" }];
-    handleChange("expenses", updated);
-  };
-
-  const updateExpense = (index, updatedExpense) => {
-    const updated = expenses.map((e, i) => (i === index ? updatedExpense : e));
-    handleChange("expenses", updated);
-  };
-
+  const addExpense = () => set('expenses', [...expenses, { description: '', source: '', amount: '' }])
+  const updateExpense = (index, updatedExpense) => set('expenses', expenses.map((e, i) => (i === index ? updatedExpense : e)))
   const removeExpense = (index) => {
-    const updated = expenses.filter((_, i) => i !== index);
-    handleChange("expenses", updated.length ? updated : [{ description: "", source: "", amount: "" }]);
-  };
+    const updated = expenses.filter((_, i) => i !== index)
+    set('expenses', updated.length ? updated : [{ description: '', source: '', amount: '' }])
+  }
 
-  const totalExpenses = expenses.reduce(
-    (sum, e) => sum + (parseFloat(e.amount) || 0),
-    0
-  );
-  const contingencyAmount = totalExpenses * 0.20; // 20% minimum reserve
-  const totalWithContingency = totalExpenses + contingencyAmount;
+  const totalExpenses = expenses.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0)
+  const contingencyAmount = totalExpenses * 0.20 // 20% minimum reserve
+  const totalWithContingency = totalExpenses + contingencyAmount
 
-  const addLoan = () => {
-    const updated = [...loans, { source: "", amount: "", terms: "" }];
-    handleChange("loans", updated);
-  };
-
-  const updateLoan = (index, updatedLoan) => {
-    const updated = loans.map((l, i) => (i === index ? updatedLoan : l));
-    handleChange("loans", updated);
-  };
-
+  const addLoan = () => set('loans', [...loans, { source: '', amount: '', terms: '' }])
+  const updateLoan = (index, updatedLoan) => set('loans', loans.map((l, i) => (i === index ? updatedLoan : l)))
   const removeLoan = (index) => {
-    const updated = loans.filter((_, i) => i !== index);
-    handleChange("loans", updated.length ? updated : [{ source: "", amount: "", terms: "" }]);
-  };
+    const updated = loans.filter((_, i) => i !== index)
+    set('loans', updated.length ? updated : [{ source: '', amount: '', terms: '' }])
+  }
 
-  const addInvestor = () => {
-    const updated = [...investors, { name: "", contribution: "", ownershipPercent: "" }];
-    handleChange("investors", updated);
-  };
-
-  const updateInvestor = (index, updatedInvestor) => {
-    const updated = investors.map((inv, i) => (i === index ? updatedInvestor : inv));
-    handleChange("investors", updated);
-  };
-
+  const addInvestor = () => set('investors', [...investors, { name: '', contribution: '', ownershipPercent: '' }])
+  const updateInvestor = (index, updatedInvestor) => set('investors', investors.map((inv, i) => (i === index ? updatedInvestor : inv)))
   const removeInvestor = (index) => {
-    const updated = investors.filter((_, i) => i !== index);
-    handleChange("investors", updated.length ? updated : [{ name: "", contribution: "", ownershipPercent: "" }]);
-  };
+    const updated = investors.filter((_, i) => i !== index)
+    set('investors', updated.length ? updated : [{ name: '', contribution: '', ownershipPercent: '' }])
+  }
 
   return (
-    <div style={styles.container}>
-      <h1 style={styles.heading}>Startup Expenses &amp; Capitalization</h1>
-      <p style={styles.subheading}>
-        Detail the one-time costs to get your business up and running, and explain
-        where the capital to cover those costs will come from. Be as specific and
-        accurate as possible. Underestimating startup costs is one of the most
-        common — and most damaging — mistakes new business owners make.
-      </p>
-
+    <SectionPage title="Startup Expenses & Capitalization" intro="Detail the one-time costs to get your business up and running, and explain where the capital to cover those costs will come from. Be as specific and accurate as possible. Underestimating startup costs is one of the most common — and most damaging — mistakes new business owners make.">
       {/* ============ 1. STARTUP EXPENSES ============ */}
-      <div style={styles.sectionGroup}>
-        <h2 style={styles.groupTitle}>Startup Expenses</h2>
-
-        <Textarea
-          label="Explanation &amp; Context"
+      <Group title="Startup Expenses">
+        <Field
+          label="Explanation & Context"
           hint="Don't just list numbers — explain the thinking behind them. Where did each figure come from? Did you get vendor quotes, research industry benchmarks, or consult with other business owners? Documented assumptions are far more credible than unsupported estimates."
-          field="startupExpensesExplanation"
-          tall
           value={data?.startupExpensesExplanation}
-          onChange={handleChange}
+          onChange={v => set('startupExpensesExplanation', v)}
+          tall
         />
 
-        <label style={{ ...styles.label, marginTop: 16 }}>
-          Expense Line Items
-        </label>
-        <span style={styles.hint}>
-          List each one-time startup expense with its amount and source/basis.
-        </span>
+        <div className="text-sm font-medium text-foreground mb-1">Expense Line Items</div>
+        <div className="text-xs text-foreground-500 mb-3">List each one-time startup expense with its amount and source/basis.</div>
 
         {expenses.map((expense, index) => (
-          <ExpenseItem
-            key={index}
-            expense={expense}
-            index={index}
-            onUpdate={updateExpense}
-            onRemove={removeExpense}
-          />
+          <div key={index} className="grid grid-cols-1 sm:grid-cols-[1fr_180px_auto] gap-3 items-end mb-3 p-3 rounded-xl border border-divider bg-content2">
+            <div>
+              <div className={itemLabel}>Expense Description</div>
+              <input className={inputCls} type="text" value={expense.description || ''}
+                onChange={e => updateExpense(index, { ...expense, description: e.target.value })}
+                placeholder="e.g. Equipment, legal fees, marketing materials" />
+              <input className={`${inputCls} mt-2 text-xs`} type="text" value={expense.source || ''}
+                onChange={e => updateExpense(index, { ...expense, source: e.target.value })}
+                placeholder="Source / basis (vendor quote, industry benchmark, etc.)" />
+            </div>
+            <div>
+              <div className={itemLabel}>Amount ($)</div>
+              <input className={numberCls} type="number" min="0" step="0.01" value={expense.amount || ''}
+                onChange={e => updateExpense(index, { ...expense, amount: e.target.value })}
+                placeholder="0.00" />
+            </div>
+            {index > 0 && (
+              <Button isIconOnly size="sm" variant="light" radius="full" aria-label="Remove expense"
+                className="text-foreground-500 hover:text-danger" onPress={() => removeExpense(index)}>
+                ✕
+              </Button>
+            )}
+          </div>
         ))}
 
-        <div style={{ textAlign: "left" }}>
-          <button
-            type="button"
-            style={styles.addButton}
-            onClick={addExpense}
-          >
-            + Add Expense Item
-          </button>
-        </div>
+        <Button size="sm" variant="bordered" color="primary" className="mb-4" onPress={addExpense}>+ Add Expense Item</Button>
 
-        <div style={styles.totalLine}>
-          Total Startup Expenses: ${totalExpenses.toFixed(2)}
-        </div>
-        <div style={styles.totalLine}>
-          Suggested Reserve for Contingencies (20%): ${contingencyAmount.toFixed(2)}
-        </div>
-        <div
-          style={{
-            ...styles.totalLine,
-            fontSize: 16,
-            borderTop: "2px solid #1a1a2e",
-            borderBottom: "2px solid #1a1a2e",
-            padding: "10px 12px",
-            marginTop: 8,
-          }}
-        >
+        <div className={totalCls}>Total Startup Expenses: ${totalExpenses.toFixed(2)}</div>
+        <div className={totalCls}>Suggested Reserve for Contingencies (20%): ${contingencyAmount.toFixed(2)}</div>
+        <div className="text-base font-bold text-foreground text-right px-3 py-3 border-y-2 border-divider mt-2">
           Total Capital Needed: ${totalWithContingency.toFixed(2)}
         </div>
 
-        <div style={{ marginTop: 16 }}>
-          <Input
+        <div className="mt-6">
+          <Field
             label="Reserve for Contingencies (custom amount)"
             hint="The template recommends 20-25% of total estimated startup costs. Enter a custom amount if different from the suggested 20%."
-            field="contingencyReserve"
-            type="number"
+            type="number" min="0" step="0.01"
             value={data?.contingencyReserve}
-            onChange={handleChange}
+            onChange={v => set('contingencyReserve', v)}
           />
         </div>
 
         {/* Loans */}
-        <div style={{ marginTop: 24 }}>
-          <h3 style={{ fontSize: 16, fontWeight: 600, color: "#1a1a2e", margin: "0 0 12px 0" }}>
-            Financing — Loans
-          </h3>
-          <span style={styles.hint}>
-            If you are financing the business with loans, describe each one: the source,
-            the amount, and the terms (interest rate, repayment period, collateral).
-          </span>
-
-          {loans.map((loan, index) => (
-            <LoanItem
-              key={index}
-              loan={loan}
-              index={index}
-              onUpdate={updateLoan}
-              onRemove={removeLoan}
-            />
-          ))}
-
-          <div style={{ textAlign: "left" }}>
-            <button
-              type="button"
-              style={styles.addButton}
-              onClick={addLoan}
-            >
-              + Add Loan
-            </button>
-          </div>
-
-          <Input
-            label="Total Loan Financing"
-            hint="Sum of all loan amounts."
-            field="totalLoanFinancing"
-            type="number"
-            value={data?.totalLoanFinancing}
-            onChange={handleChange}
-          />
+        <SubTitle>Financing — Loans</SubTitle>
+        <div className="text-xs text-foreground-500 mb-3">
+          If you are financing the business with loans, describe each one: the source, the amount, and the terms (interest rate, repayment period, collateral).
         </div>
+
+        {loans.map((loan, index) => (
+          <div key={index} className="grid grid-cols-1 sm:grid-cols-[1fr_180px_auto] gap-3 items-end mb-3 p-3 rounded-xl border border-divider bg-content2">
+            <div>
+              <div className={itemLabel}>Loan Source</div>
+              <input className={inputCls} type="text" value={loan.source || ''}
+                onChange={e => updateLoan(index, { ...loan, source: e.target.value })}
+                placeholder="e.g. Bank of America, SBA" />
+              <input className={`${inputCls} mt-2 text-xs`} type="text" value={loan.terms || ''}
+                onChange={e => updateLoan(index, { ...loan, terms: e.target.value })}
+                placeholder="Terms (rate, repayment period, collateral)" />
+            </div>
+            <div>
+              <div className={itemLabel}>Amount ($)</div>
+              <input className={numberCls} type="number" min="0" step="0.01" value={loan.amount || ''}
+                onChange={e => updateLoan(index, { ...loan, amount: e.target.value })}
+                placeholder="0.00" />
+            </div>
+            {index > 0 && (
+              <Button isIconOnly size="sm" variant="light" radius="full" aria-label="Remove loan"
+                className="text-foreground-500 hover:text-danger" onPress={() => removeLoan(index)}>
+                ✕
+              </Button>
+            )}
+          </div>
+        ))}
+
+        <Button size="sm" variant="bordered" color="primary" className="mb-4" onPress={addLoan}>+ Add Loan</Button>
+
+        <Field
+          label="Total Loan Financing"
+          hint="Sum of all loan amounts."
+          type="number" min="0" step="0.01"
+          value={data?.totalLoanFinancing}
+          onChange={v => set('totalLoanFinancing', v)}
+        />
 
         {/* Investors */}
-        <div style={{ marginTop: 24 }}>
-          <h3 style={{ fontSize: 16, fontWeight: 600, color: "#1a1a2e", margin: "0 0 12px 0" }}>
-            Financing — Investor Contributions
-          </h3>
-          <span style={styles.hint}>
-            If you have investors, specify how much each person is contributing and what
-            ownership percentage they'll receive in return.
-          </span>
-
-          {investors.map((investor, index) => (
-            <InvestorItem
-              key={index}
-              investor={investor}
-              index={index}
-              onUpdate={updateInvestor}
-              onRemove={removeInvestor}
-            />
-          ))}
-
-          <div style={{ textAlign: "left" }}>
-            <button
-              type="button"
-              style={styles.addButton}
-              onClick={addInvestor}
-            >
-              + Add Investor
-            </button>
-          </div>
-
-          <Input
-            label="Total Investor Financing"
-            hint="Sum of all investor contributions."
-            field="totalInvestorFinancing"
-            type="number"
-            value={data?.totalInvestorFinancing}
-            onChange={handleChange}
-          />
+        <SubTitle>Financing — Investor Contributions</SubTitle>
+        <div className="text-xs text-foreground-500 mb-3">
+          If you have investors, specify how much each person is contributing and what ownership percentage they'll receive in return.
         </div>
-      </div>
+
+        {investors.map((investor, index) => (
+          <div key={index} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_1fr_auto] gap-3 items-end mb-3 p-3 rounded-xl border border-divider bg-content2">
+            <div>
+              <div className={itemLabel}>Investor Name</div>
+              <input className={inputCls} type="text" value={investor.name || ''}
+                onChange={e => updateInvestor(index, { ...investor, name: e.target.value })}
+                placeholder="Full name" />
+            </div>
+            <div>
+              <div className={itemLabel}>Contribution ($)</div>
+              <input className={numberCls} type="number" min="0" step="0.01" value={investor.contribution || ''}
+                onChange={e => updateInvestor(index, { ...investor, contribution: e.target.value })}
+                placeholder="0.00" />
+            </div>
+            <div>
+              <div className={itemLabel}>Ownership %</div>
+              <input className={numberCls} type="number" min="0" max="100" step="0.1" value={investor.ownershipPercent || ''}
+                onChange={e => updateInvestor(index, { ...investor, ownershipPercent: e.target.value })}
+                placeholder="0.0" />
+            </div>
+            {index > 0 && (
+              <Button isIconOnly size="sm" variant="light" radius="full" aria-label="Remove investor"
+                className="text-foreground-500 hover:text-danger" onPress={() => removeInvestor(index)}>
+                ✕
+              </Button>
+            )}
+          </div>
+        ))}
+
+        <Button size="sm" variant="bordered" color="primary" className="mb-4" onPress={addInvestor}>+ Add Investor</Button>
+
+        <Field
+          label="Total Investor Financing"
+          hint="Sum of all investor contributions."
+          type="number" min="0" step="0.01"
+          value={data?.totalInvestorFinancing}
+          onChange={v => set('totalInvestorFinancing', v)}
+        />
+      </Group>
 
       {/* ============ 2. OPENING DAY BALANCE SHEET ============ */}
-      <div style={styles.sectionGroup}>
-        <h2 style={styles.groupTitle}>Opening Day Balance Sheet</h2>
-        <p style={{ ...styles.subheading, margin: "0 0 12px 0" }}>
-          Capture the expected financial position of your business on the day you open —
-          your assets, liabilities, and equity at the starting line. A well-prepared
-          opening day balance sheet tells investors and lenders that you understand your
-          financial position from day one.
-        </p>
+      <Group title="Opening Day Balance Sheet" hint="Capture the expected financial position of your business on the day you open — your assets, liabilities, and equity at the starting line. A well-prepared opening day balance sheet tells investors and lenders that you understand your financial position from day one.">
+        <SubTitle>Assets</SubTitle>
+        <Row>
+          <Field label="Cash on Hand ($)" type="number" min="0" step="0.01" value={data?.balanceCashOnHand} onChange={v => set('balanceCashOnHand', v)} />
+          <Field label="Accounts Receivable ($)" type="number" min="0" step="0.01" value={data?.balanceAccountsReceivable} onChange={v => set('balanceAccountsReceivable', v)} />
+          <Field label="Equipment ($)" type="number" min="0" step="0.01" value={data?.balanceEquipment} onChange={v => set('balanceEquipment', v)} />
+          <Field label="Inventory ($)" type="number" min="0" step="0.01" value={data?.balanceInventory} onChange={v => set('balanceInventory', v)} />
+          <Field label="Furniture & Fixtures ($)" type="number" min="0" step="0.01" value={data?.balanceFurnitureFixtures} onChange={v => set('balanceFurnitureFixtures', v)} />
+          <Field label="Other Assets ($)" type="number" min="0" step="0.01" value={data?.balanceOtherAssets} onChange={v => set('balanceOtherAssets', v)} />
+        </Row>
 
-        <h3 style={{ fontSize: 16, fontWeight: 600, color: "#1a1a2e", margin: "12px 0 8px 0" }}>
-          Assets
-        </h3>
-        <div style={styles.grid2}>
-          <Input
-            label="Cash on Hand ($)"
-            field="balanceCashOnHand"
-            type="number"
-            value={data?.balanceCashOnHand}
-            onChange={handleChange}
-          />
-          <Input
-            label="Accounts Receivable ($)"
-            field="balanceAccountsReceivable"
-            type="number"
-            value={data?.balanceAccountsReceivable}
-            onChange={handleChange}
-          />
-          <Input
-            label="Equipment ($)"
-            field="balanceEquipment"
-            type="number"
-            value={data?.balanceEquipment}
-            onChange={handleChange}
-          />
-          <Input
-            label="Inventory ($)"
-            field="balanceInventory"
-            type="number"
-            value={data?.balanceInventory}
-            onChange={handleChange}
-          />
-          <Input
-            label="Furniture &amp; Fixtures ($)"
-            field="balanceFurnitureFixtures"
-            type="number"
-            value={data?.balanceFurnitureFixtures}
-            onChange={handleChange}
-          />
-          <Input
-            label="Other Assets ($)"
-            field="balanceOtherAssets"
-            type="number"
-            value={data?.balanceOtherAssets}
-            onChange={handleChange}
-          />
-        </div>
+        <SubTitle>Liabilities</SubTitle>
+        <Row>
+          <Field label="Accounts Payable ($)" type="number" min="0" step="0.01" value={data?.balanceAccountsPayable} onChange={v => set('balanceAccountsPayable', v)} />
+          <Field label="Loans Payable ($)" type="number" min="0" step="0.01" value={data?.balanceLoansPayable} onChange={v => set('balanceLoansPayable', v)} />
+          <Field label="Other Liabilities ($)" type="number" min="0" step="0.01" value={data?.balanceOtherLiabilities} onChange={v => set('balanceOtherLiabilities', v)} />
+        </Row>
 
-        <h3 style={{ fontSize: 16, fontWeight: 600, color: "#1a1a2e", margin: "12px 0 8px 0" }}>
-          Liabilities
-        </h3>
-        <div style={styles.grid2}>
-          <Input
-            label="Accounts Payable ($)"
-            field="balanceAccountsPayable"
-            type="number"
-            value={data?.balanceAccountsPayable}
-            onChange={handleChange}
-          />
-          <Input
-            label="Loans Payable ($)"
-            field="balanceLoansPayable"
-            type="number"
-            value={data?.balanceLoansPayable}
-            onChange={handleChange}
-          />
-          <Input
-            label="Other Liabilities ($)"
-            field="balanceOtherLiabilities"
-            type="number"
-            value={data?.balanceOtherLiabilities}
-            onChange={handleChange}
-          />
-        </div>
-
-        <h3 style={{ fontSize: 16, fontWeight: 600, color: "#1a1a2e", margin: "12px 0 8px 0" }}>
-          Equity
-        </h3>
-        <div style={styles.grid2}>
-          <Input
-            label="Owner's Investment ($)"
-            field="balanceOwnersInvestment"
-            type="number"
-            value={data?.balanceOwnersInvestment}
-            onChange={handleChange}
-          />
-          <Input
-            label="Retained Earnings ($)"
-            field="balanceRetainedEarnings"
-            type="number"
-            value={data?.balanceRetainedEarnings}
-            onChange={handleChange}
-          />
-        </div>
-      </div>
+        <SubTitle>Equity</SubTitle>
+        <Row>
+          <Field label="Owner's Investment ($)" type="number" min="0" step="0.01" value={data?.balanceOwnersInvestment} onChange={v => set('balanceOwnersInvestment', v)} />
+          <Field label="Retained Earnings ($)" type="number" min="0" step="0.01" value={data?.balanceRetainedEarnings} onChange={v => set('balanceRetainedEarnings', v)} />
+        </Row>
+      </Group>
 
       {/* ============ 3. PERSONAL FINANCIAL STATEMENT ============ */}
-      <div style={styles.sectionGroup}>
-        <h2 style={styles.groupTitle}>Personal Financial Statement</h2>
-        <p style={{ ...styles.subheading, margin: "0 0 12px 0" }}>
-          If you're using this business plan to seek financing, include a personal
-          financial statement for each owner and major stockholder. This summarizes each
-          person's personal assets, liabilities, and net worth outside of the business.
-        </p>
-
-        <label style={{ ...styles.label }}>
-          Personal Financial Statement Details
-        </label>
-        <span style={styles.hint}>
-          Investors and lenders typically expect business owners to have personal skin in
-          the game. Describe the personal capital each owner is able to bring to the table.
-        </span>
-
-        <Textarea
+      <Group title="Personal Financial Statement" hint="If you're using this business plan to seek financing, include a personal financial statement for each owner and major stockholder. This summarizes each person's personal assets, liabilities, and net worth outside of the business.">
+        <div className="text-sm font-medium text-foreground mb-1">Personal Financial Statement Details</div>
+        <div className="text-xs text-foreground-500 mb-4">
+          Investors and lenders typically expect business owners to have personal skin in the game. Describe the personal capital each owner is able to bring to the table.
+        </div>
+        <Field
           label="Owner 1 — Summary"
           hint="Personal assets, liabilities, net worth, and capital contribution."
-          field="personalFinancialOwner1"
-          tall
           value={data?.personalFinancialOwner1}
-          onChange={handleChange}
+          onChange={v => set('personalFinancialOwner1', v)}
+          tall
         />
-
-        <Textarea
+        <Field
           label="Owner 2 — Summary"
           hint="Personal assets, liabilities, net worth, and capital contribution."
-          field="personalFinancialOwner2"
-          tall
           value={data?.personalFinancialOwner2}
-          onChange={handleChange}
+          onChange={v => set('personalFinancialOwner2', v)}
+          tall
         />
-
-        <Input
+        <Field
           label="Total Personal Capital Invested ($)"
           hint="Sum of all personal funds owners are contributing to startup costs."
-          field="totalPersonalCapital"
-          type="number"
+          type="number" min="0" step="0.01"
           value={data?.totalPersonalCapital}
-          onChange={handleChange}
+          onChange={v => set('totalPersonalCapital', v)}
         />
-
-        <Textarea
+        <Field
           label="Additional Notes on Capitalization"
           hint="Add any additional context about your overall funding plan, reserve strategy, or financial readiness."
-          field="capitalizationNotes"
-          tall
           value={data?.capitalizationNotes}
-          onChange={handleChange}
+          onChange={v => set('capitalizationNotes', v)}
+          tall
         />
-      </div>
-    </div>
-  );
+      </Group>
+    </SectionPage>
+  )
 }
