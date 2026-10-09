@@ -243,19 +243,19 @@ export default function App() {
 
   return (
     <>
-      <Navbar maxWidth="xl" isBordered className="app-chrome" height="3.5rem">
-        <NavbarBrand className="gap-2.5">
-          <span className="text-xl">🚀</span>
+      <Navbar maxWidth="full" isBordered className="app-chrome navbar-maxw7" height="3.5rem">
+        <NavbarBrand className="gap-2.5 mr-auto">
+          <span className="text-xl leading-none">🚀</span>
           <div className="leading-tight">
             <div className="text-sm font-bold text-foreground">Business Starter</div>
             <div className="text-[11px] text-foreground-500 hidden sm:block">SCORE Plan Builder</div>
           </div>
         </NavbarBrand>
-        <NavbarContent justify="end" className="gap-2">
-          <Button size="sm" variant="flat" className="no-print" onClick={handleExport}>⬇ Export All</Button>
+        <NavbarContent justify="end" className="gap-2 items-center">
+          <Button size="sm" variant="flat" className="no-print h-9" startContent={<span className="text-base leading-none">⬇</span>} onClick={handleExport}>Export All</Button>
           <label className="no-print cursor-pointer">
             <input type="file" accept="application/json" className="hidden" onChange={handleImport} />
-            <span className="inline-flex items-center h-8 px-3 rounded-lg bg-content2 text-foreground text-sm font-medium hover:bg-content3 transition-colors">⬆ Import</span>
+            <span className="inline-flex items-center gap-1 h-9 px-3 rounded-medium bg-content2 text-foreground text-sm font-medium hover:bg-content3 transition-colors"><span className="text-base leading-none">⬆</span> Import</span>
           </label>
           <ThemeToggle />
         </NavbarContent>
@@ -280,7 +280,7 @@ export default function App() {
         ) : (
           <>
             {/* Search & Filter Bar */}
-            <div className="flex flex-col sm:flex-row gap-3 mb-6">
+            <div className="flex flex-col sm:flex-row gap-3 mb-7">
               <Input
                 isClearable
                 size="sm"
@@ -289,8 +289,7 @@ export default function App() {
                 value={searchQuery}
                 onValueChange={setSearchQuery}
                 onClear={() => setSearchQuery('')}
-                startContent={<span>🔍</span>}
-                className="sm:max-w-xs"
+                className="sm:flex-1 sm:max-w-md"
               />
               <div className="flex gap-3 flex-wrap items-center">
                 <Select
