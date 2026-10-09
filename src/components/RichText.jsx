@@ -1,8 +1,10 @@
 import { createContext, useContext, useEffect, useRef } from 'react'
 import { useEditor, EditorContent } from '@tiptap/react'
 import StarterKit from '@tiptap/starter-kit'
+import Image from '@tiptap/extension-image'
 import Placeholder from '@tiptap/extension-placeholder'
 import DOMPurify from 'isomorphic-dompurify'
+import { apiFetch } from '../api.js'
 
 /* ── Print / read-only mode ──────────────────────────────────
    When active, rich fields render sanitized HTML instead of
@@ -14,7 +16,7 @@ export const PrintModeContext = createContext(false)
    Stored values are HTML; sanitize on render. Legacy plaintext
    contents render as-is (escaped, paragraphs preserved).      */
 
-const HTML_RE = /<(p|br|h[2-3]|ul|ol|li|b|strong|i|em|u|s|strike|a|blockquote|code|hr)[\s/>]/i
+const HTML_RE = /<(p|br|h[2-3]|ul|ol|li|b|strong|i|em|u|s|strike|a|img|blockquote|code|hr)[\s/>]/i
 
 export function renderRich(value) {
   const s = String(value ?? '')
@@ -34,6 +36,7 @@ export default function RichText({ value, onChange, placeholder = 'Write somethi
     extensions: [
       StarterKit.configure({ heading: { levels: [2, 3] } }),
       Placeholder.configure({ placeholder }),
+      Image.configure({ inline: false, allowBase64: false }),
     ],
     content: String(value ?? ''),
     onUpdate: ({ editor }) => {
@@ -93,6 +96,39 @@ function Toolbar({ editor }) {
 
   const chain = () => editor.chain().focus()
 
+  const fileRef = { current: null }
+
+  const insertImage = async (file) => {
+    if (!file) return
+    if (!/^image\/(png|jpe?g|webp|gif)$/.test(file.type)) { alert('Only PNG / JPEG / WebP / GIF images.') ; return }
+    if (file.size > 5 * 1024 * 1024) { alert('Image exceeds 5 MB limit.'); return }
+    try {
+      const fd = new FormData()
+      fd.append('image', file)
+      const res = await apiFetch('/api/uploads', {
+        method: 'POST',
+        body: fd,
+      })
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || res.status)
+      const { url } = await res.json()
+      editor.chain().focus().setImage({ src: url, alt: file.name }).run()
+    } catch (e) {
+      alert(`Image upload failed: ${e.message}`)
+    }
+  }
+
+  const pickImage = () => {
+    let inp = pickImage._input
+    if (!inp) {
+      inp = document.createElement('input')
+      inp.type = 'file'
+      inp.accept = 'image/png,image/jpeg,image/webp,image/gif'
+      inp.onchange = () => { if (inp.files?.[0]) insertImage(inp.files[0]); inp.value = '' }
+      pickImage._input = inp
+    }
+    inp.click()
+  }
+
   const setLink = () => {
     const previous = editor.getAttributes('link').href
     const url = window.prompt('Link URL', previous || 'https://')
@@ -117,6 +153,7 @@ function Toolbar({ editor }) {
       {item('1. List', 'Numbered list', () => chain().toggleOrderedList().run(), editor.isActive('orderedList'))}
       <span className="w-px h-4 bg-divider mx-1" />
       {item('🔗', 'Link', setLink, editor.isActive('link'))}
+      {item('🖼', 'Insert image', pickImage, editor.isActive('image'))}
     </div>
   )
 }

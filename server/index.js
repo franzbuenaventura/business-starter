@@ -5,6 +5,7 @@ import fs from 'fs'
 import path from 'path'
 import crypto from 'crypto'
 import { fileURLToPath } from 'url'
+import multer from 'multer'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -530,6 +531,37 @@ function createApp(db, persistFn) {
     } catch (e) {
       res.status(500).json({ error: 'Failed to create from template', detail: String(e) })
     }
+  })
+
+  /* ── Image uploads (plan-section images) ─────────────────── */
+  const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, 'data', 'uploads')
+  fs.mkdirSync(UPLOAD_DIR, { recursive: true })
+  app.use('/uploads', express.static(UPLOAD_DIR, { maxAge: '30d', immutable: true }))
+
+  const upload = multer({
+    storage: multer.diskStorage({
+      destination: (rq, fl, cb) => cb(null, UPLOAD_DIR),
+      filename: (rq, fl, cb) => {
+        const ext = (path.extname(fl.originalname || '').toLowerCase() || '.png').slice(0, 8)
+        cb(null, `img_${Date.now().toString(36)}_${crypto.randomBytes(4).toString('hex')}${ext}`)
+      },
+    }),
+    limits: { fileSize: 5 * 1024 * 1024 },
+    fileFilter: (rq, fl, cb) => {
+      const ok = ['image/png', 'image/jpeg', 'image/webp', 'image/gif'].includes(fl.mimetype)
+      cb(ok ? null : new Error('Only png/jpeg/webp/gif allowed'), ok)
+    },
+  })
+
+  app.post('/api/uploads', (rq, res) => {
+    upload.single('image')(rq, res, (err) => {
+      if (err) {
+        const tooBig = String(err).includes('LIMIT_FILE_SIZE')
+        return res.status(400).json({ error: tooBig ? 'Image exceeds 5 MB limit' : String(err.message || err) })
+      }
+      if (!rq.file) return res.status(400).json({ error: 'No image provided (field: image)' })
+      res.status(201).json({ url: `/uploads/${rq.file.filename}`, size: rq.file.size, mime: rq.file.mimetype })
+    })
   })
 
   app.get('*', (req, res) => {
