@@ -46,7 +46,7 @@ export function LineChart({ labels, values, height = 190, color = '#4f8cff', zer
       <path d={area} fill={color} opacity={0.12} />
       <path d={d} fill="none" stroke={color} strokeWidth={2.2} />
       {labels.map((l, i) => i % 2 === 0 && <text key={l + i} x={x(i)} y={H - 8} fontSize={10} fill={TXT} textAnchor="middle">{l}</text>)}
-      <text x={pad.l} y={12} fontSize={11} fill={TXT}>{name}{name && ' · '}{PHPl(max)}</text>
+      <text x={pad.l} y={12} fontSize={11} fill={TXT}>{name}{name && ' · '}{PHPl(Math.abs(max) > 1 ? max : (Math.min(...values) < 0 ? Math.min(...values) : max))}</text>
     </svg>
   )
 }
