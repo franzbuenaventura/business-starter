@@ -78,3 +78,6 @@ kbd {
 
 /* Navbar content aligned to the dashboard's max-w-7xl column */
 .navbar-maxw7 > header { padding-left: calc(max(1.5rem, (100% - 1280px) / 2 + 1rem)) !important; padding-right: calc(max(1.5rem, (100% - 1280px) / 2 + 1rem)) !important; }
+
+/* Editor content anchors below sticky chrome */
+.editor-content-anchor { scroll-margin-top: 8.5rem; }

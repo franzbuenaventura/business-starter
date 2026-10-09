@@ -122,6 +122,26 @@ function useDebounced(value, delay = 300) {
 
 /* ── App ────────────────────────────────────────────────────── */
 
+function SectionPager({ activeTab, onSwitch, sectionData, contentRef }) {
+  const idx = SECTIONS.findIndex(s => s.key === activeTab)
+  const prev = SECTIONS[idx - 1]
+  const next = SECTIONS[idx + 1]
+  const go = k => { onSwitch(k); requestAnimationFrame(() => contentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })) }
+  return (
+    <div className="app-chrome max-w-3xl mx-auto px-4 sm:px-6 pt-1 flex items-center justify-between text-xs no-print">
+      <button type="button" disabled={!prev} onClick={() => prev && go(prev.key)}
+        className={`flex items-center gap-1.5 py-1.5 px-2 rounded-medium transition-colors ${prev ? 'text-foreground-500 hover:text-foreground hover:bg-content2/50' : 'opacity-0 pointer-events-none'}`}>
+        <span aria-hidden>←</span><span className="hidden sm:inline">{prev && <>{prev.key} {prev.tab || prev.label}</>}</span><span className="sm:hidden">Prev</span>
+      </button>
+      <span className="text-foreground-400">{idx + 1} of {SECTIONS.length}</span>
+      <button type="button" disabled={!next} onClick={() => next && go(next.key)}
+        className={`flex items-center gap-1.5 py-1.5 px-2 rounded-medium transition-colors ${next ? 'text-foreground-500 hover:text-foreground hover:bg-content2/50' : 'opacity-0 pointer-events-none'}`}>
+        <span className="sm:hidden">Next</span><span className="hidden sm:inline">{next && <>{next.key} {next.tab || next.label}</>}</span><span aria-hidden>→</span>
+      </button>
+    </div>
+  )
+}
+
 export default function App() {
   const [businesses, setBusinesses] = useState(null)
   const [selectedId, setSelectedId] = useState(null)
@@ -843,40 +863,42 @@ function PlanView({ id, onBack }) {
             </div>
           </div>
 
-          {/* Section tabs I–X */}
-          <Tabs
-            variant="underlined"
-            selectedKey={activeTab}
-            onSelectionChange={key => handleTabSwitch(String(key))}
-            classNames={{
-              base: 'overflow-x-auto',
-              tabList: 'gap-0',
-              tab: 'h-10 px-3 data-[hover-unselected]:opacity-100',
-              cursor: 'w-full',
-            }}
-          >
-            {SECTIONS.map(s => {
-              const completed = hasSectionData(sectionData[s.key])
-              return (
-                <Tab
-                  key={s.key}
-                  title={
-                    <span className="flex items-center gap-1.5 whitespace-nowrap text-xs sm:text-sm">
-                      <span className={completed ? 'text-primary font-semibold' : 'text-foreground-400 font-medium'}>{s.key}</span>
-                      <span className={completed ? 'hidden md:inline text-primary' : 'hidden md:inline text-foreground'}>{s.tab || s.label}</span>
-                      {completed && <span className="text-success lg:hidden">✓</span>}
+          {/* Section map nav I–X (replaces scrollable tab strip) */}
+          <nav aria-label="Plan sections" className="pb-2">
+            <div className="grid grid-cols-5 gap-1.5">
+              {SECTIONS.map(s => {
+                const completed = hasSectionData(sectionData[s.key])
+                const active = activeTab === s.key
+                return (
+                  <button
+                    key={s.key}
+                    type="button"
+                    aria-current={active ? 'true' : undefined}
+                    title={s.label}
+                    onClick={() => { handleTabSwitch(s.key); requestAnimationFrame(() => contentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })) }}
+                    className={`group flex flex-col items-start rounded-medium px-2 py-1.5 text-left transition-colors border border-transparent
+                      ${active ? 'bg-content2/80 border-divider' : 'hover:bg-content2/40'}
+                      focus-visible:outline-2 focus-visible:outline-primary`}
+                  >
+                    <span className="flex items-center gap-1">
+                      <span className={`text-[11px] leading-none font-semibold ${active ? 'text-primary' : completed ? 'text-primary/80' : 'text-foreground-400'}`}>{s.key}</span>
+                      <span aria-hidden className={`w-1.5 h-1.5 rounded-full shrink-0 ${completed ? 'bg-success' : 'bg-default-300'}`} />
                     </span>
-                  }
-                />
-              )
-            })}
-          </Tabs>
+                    <span className={`text-[11px] leading-tight sm:text-xs ${active ? 'text-foreground font-medium' : 'text-foreground-500 group-hover:text-foreground'}`}>{s.tab || s.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </nav>
         </div>
       </div>
 
+      {/* Prev / Next section quick nav */}
+      <SectionPager activeTab={activeTab} onSwitch={handleTabSwitch} sectionData={sectionData} contentRef={contentRef} />
+
       {/* Main content */}
       <div
-        className="max-w-3xl mx-auto px-4 sm:px-6 pt-6 outline-none"
+        className="editor-content-anchor max-w-3xl mx-auto px-4 sm:px-6 pt-6 outline-none"
         ref={contentRef}
         tabIndex={-1}
         aria-label={`Section ${activeTab}: ${SECTIONS.find(s => s.key === activeTab)?.label || ''}`}
@@ -979,5 +1001,4 @@ function SectionRouter({ sectionKey, sectionLabel, sectionData, businessId, onSa
         {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved ✓' : 'All changes saved'}
       </div>
     </div>
-  )
-}
+  )}
