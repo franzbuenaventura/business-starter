@@ -330,6 +330,7 @@ function createApp(db, persistFn) {
 
   app.delete('/api/businesses/:id', (req, res) => {
     db.run('DELETE FROM plan_sections WHERE plan_id = ?', [req.params.id])
+    db.run('DELETE FROM plan_scenarios WHERE plan_id = ?', [req.params.id])
     db.run('DELETE FROM businesses WHERE id = ?', [req.params.id])
     if (persistFn) persistFn()
     res.status(204).end()
@@ -564,7 +565,64 @@ function createApp(db, persistFn) {
     })
   })
 
-  app.get('*', (req, res) => {
+  
+  /* ── Scenario endpoints ─────────────────────────────────── */
+  // A plan keeps its base financials in VII/VIII; scenarios hold ALTERNATIVE
+  // costing models (same business idea, different startup/opex assumptions).
+  // content JSON mirrors the VII/VIII schemas so FinDashboard can render each.
+
+  app.get('/api/businesses/:id/scenarios', (req, res) => {
+    const id = Number(req.params.id)
+    if (!isIntId(id)) return res.status(400).json({ error: 'Invalid id' })
+    const scenarios = rowsToObjects(db.exec('SELECT id, plan_id, name, notes, content, is_default, updated_at FROM plan_scenarios WHERE plan_id = ? ORDER BY id', [id]))
+    scenarios.forEach(sc => { sc.content = safeParseJson(sc.content) || null; sc.is_default = !!sc.is_default })
+    res.json(scenarios)
+  })
+
+  app.post('/api/businesses/:id/scenarios', (req, res) => {
+    const id = Number(req.params.id)
+    if (!isIntId(id)) return res.status(400).json({ error: 'Invalid id' })
+    const { name, notes, content, is_default } = req.body || {}
+    if (!name) return res.status(400).json({ error: 'Scenario name is required' })
+    const dup = queryOne(db, 'SELECT id FROM plan_scenarios WHERE plan_id = ? AND name = ?', [id, name])
+    if (dup) return res.status(409).json({ error: 'A scenario with that name already exists on this plan' })
+    const first = queryOne(db, 'SELECT COUNT(*) AS n FROM plan_scenarios WHERE plan_id = ?', [id])
+    const makeDefault = (first && first.n === 0) ? 1 : (is_default ? 1 : 0)
+    if (makeDefault) db.run('UPDATE plan_scenarios SET is_default = 0 WHERE plan_id = ?', [id])
+    db.run('INSERT INTO plan_scenarios (plan_id, name, notes, content, is_default) VALUES (?, ?, ?, ?, ?)',
+      [id, name, notes || null, typeof content === 'string' ? content : JSON.stringify(content || null), makeDefault])
+    const sid = db.exec('SELECT last_insert_rowid() as id')[0].values[0][0]
+    if (persistFn) persistFn()
+    const row = queryOne(db, 'SELECT id, plan_id, name, notes, content, is_default, updated_at FROM plan_scenarios WHERE id = ?', [sid])
+    row.content = safeParseJson(row.content); row.is_default = !!row.is_default
+    res.status(201).json(row)
+  })
+
+  app.patch('/api/businesses/:id/scenarios/:sid', (req, res) => {
+    const id = Number(req.params.id), sid = Number(req.params.sid)
+    if (!isIntId(id) || !isIntId(sid)) return res.status(400).json({ error: 'Invalid id' })
+    const row = queryOne(db, 'SELECT id FROM plan_scenarios WHERE id = ? AND plan_id = ?', [sid, id])
+    if (!row) return res.status(404).json({ error: 'Scenario not found' })
+    const { name, notes, content, is_default } = req.body || {}
+    if (is_default === true) db.run('UPDATE plan_scenarios SET is_default = 0 WHERE plan_id = ?', [id])
+    db.run('UPDATE plan_scenarios SET name = COALESCE(?, name), notes = COALESCE(?, notes), content = COALESCE(?, content), is_default = COALESCE(?, is_default), updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [name || null, notes !== undefined ? notes : null, content !== undefined ? (typeof content === 'string' ? content : JSON.stringify(content)) : null,
+       is_default === undefined ? null : (is_default ? 1 : 0), sid])
+    if (persistFn) persistFn()
+    const out = queryOne(db, 'SELECT id, plan_id, name, notes, content, is_default, updated_at FROM plan_scenarios WHERE id = ?', [sid])
+    out.content = safeParseJson(out.content); out.is_default = !!out.is_default
+    res.json(out)
+  })
+
+  app.delete('/api/businesses/:id/scenarios/:sid', (req, res) => {
+    const id = Number(req.params.id), sid = Number(req.params.sid)
+    if (!isIntId(id) || !isIntId(sid)) return res.status(400).json({ error: 'Invalid id' })
+    db.run('DELETE FROM plan_scenarios WHERE id = ? AND plan_id = ?', [sid, id])
+    if (persistFn) persistFn()
+    res.json({ ok: true })
+  })
+
+app.get('*', (req, res) => {
     if (req.path.startsWith('/api')) return res.status(404).json({ error: 'Not found' })
     const indexPath = path.join(distPath, 'index.html')
     if (fs.existsSync(indexPath)) res.sendFile(indexPath)
@@ -590,6 +648,7 @@ async function createTestServer() {
   const db = new SQL.Database()
   db.run(`CREATE TABLE IF NOT EXISTS businesses (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, industry TEXT, status TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`)
   db.run(`CREATE TABLE IF NOT EXISTS plan_sections (id INTEGER PRIMARY KEY AUTOINCREMENT, plan_id INTEGER NOT NULL, section_key TEXT NOT NULL, content TEXT, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (plan_id) REFERENCES businesses(id) ON DELETE CASCADE, UNIQUE (plan_id, section_key))`)
+  db.run(`CREATE TABLE IF NOT EXISTS plan_scenarios (id INTEGER PRIMARY KEY AUTOINCREMENT, plan_id INTEGER NOT NULL, name TEXT NOT NULL, notes TEXT, content TEXT, is_default INTEGER DEFAULT 0, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (plan_id) REFERENCES businesses(id) ON DELETE CASCADE, UNIQUE (plan_id, name))`)
   db.run(`CREATE TABLE IF NOT EXISTS auth_settings (key TEXT PRIMARY KEY, value TEXT)`)
   db.run(`CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`)
   const app = createApp(db)
@@ -612,8 +671,14 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
 
   db.run(`CREATE TABLE IF NOT EXISTS businesses (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, industry TEXT, status TEXT, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`)
   db.run(`CREATE TABLE IF NOT EXISTS plan_sections (id INTEGER PRIMARY KEY AUTOINCREMENT, plan_id INTEGER NOT NULL, section_key TEXT NOT NULL, content TEXT, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (plan_id) REFERENCES businesses(id) ON DELETE CASCADE, UNIQUE (plan_id, section_key))`)
+  db.run(`CREATE TABLE IF NOT EXISTS plan_scenarios (id INTEGER PRIMARY KEY AUTOINCREMENT, plan_id INTEGER NOT NULL, name TEXT NOT NULL, notes TEXT, content TEXT, is_default INTEGER DEFAULT 0, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (plan_id) REFERENCES businesses(id) ON DELETE CASCADE, UNIQUE (plan_id, name))`)
   db.run(`CREATE TABLE IF NOT EXISTS auth_settings (key TEXT PRIMARY KEY, value TEXT)`)
   db.run(`CREATE TABLE IF NOT EXISTS sessions (token TEXT PRIMARY KEY, created_at DATETIME DEFAULT CURRENT_TIMESTAMP)`)
+
+  // Migration: scenario default flag (existing DBs)
+  try {
+    db.exec('ALTER TABLE plan_scenarios ADD COLUMN is_default INTEGER DEFAULT 0')
+  } catch (e) { /* exists */ }
 
   // Migration: add status column if missing (existing DBs)
   try {

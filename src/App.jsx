@@ -22,6 +22,7 @@ import OfflineIndicator from './components/OfflineIndicator.jsx'
 import AiDraftButton from './components/AiDraftButton.jsx'
 import { PrintModeContext } from './components/RichText.jsx'
 import { useOfflineSync } from './hooks/useOfflineSync.js'
+import ScenarioBar from './components/ScenarioBar.jsx'
 import { apiFetch, clearToken } from './api.js'
 import './styles.css'
 import './print.css'
@@ -616,6 +617,16 @@ function PlanView({ id, onBack }) {
   const [saveStatus, setSaveStatus] = useState('idle') // 'idle' | 'saving' | 'saved'
   const [printMode, setPrintMode] = useState(false)
   const [showShortcuts, setShowShortcuts] = useState(false)
+  const [activeScenario, setActiveScenario] = useState(null) // null | scenario object from ScenarioBar
+  const scenarioOverride = useMemo(() => {
+    // When a scenario is active, VII/VIII edits target the scenario copy, not the base rows.
+    if (!activeScenario?.content) return sectionData
+    const merged = { ...sectionData }
+    if (activeScenario.content.VII) merged['VII'] = activeScenario.content.VII
+    if (activeScenario.content.VIII) merged['VIII'] = activeScenario.content.VIII
+    return merged
+  }, [sectionData, activeScenario])
+
   const saveTimerRef = useRef(null)
   const pendingDataRef = useRef(null)
   const activeTabRef = useRef('I')
@@ -685,6 +696,28 @@ function PlanView({ id, onBack }) {
       }, 2000)
       saveTimerRef.current = null
     }, 1500)
+  }, [id])
+
+  // Scenario section save: writes VII/VIII edits into the ACTIVE scenario's copy
+  const saveScenarioSection = useCallback(async (scenario, key, content) => {
+    const body = { notes: scenario.notes, content: { ...(scenario.content || {}), [key]: content } }
+    setSaveStatus('saving')
+    if (!navigator.onLine) {
+      setSaveStatus('saved'); setTimeout(() => setSaveStatus('idle'), 2000)
+      return
+    }
+    try {
+      const res = await apiFetch(`${API}/${id}/scenarios/${scenario.id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+      })
+      if (res.ok) {
+        const updated = await res.json()
+        setActiveScenario(updated)
+        setSectionData(prev => ({ ...prev, [key]: content }))  // keep dashboard live
+      }
+    } catch (e) { console.error('Scenario save failed:', e) }
+    setSaveStatus('saved')
+    setTimeout(() => setSaveStatus('idle'), 2000)
   }, [id])
 
   // Flush pending save immediately (used on tab switch) — declared before the
@@ -863,11 +896,12 @@ function PlanView({ id, onBack }) {
             </div>
           </div>
 
-          {/* Section map nav I–X (replaces scrollable tab strip) */}
+                    <ScenarioBar planId={id} baseVIII={sectionData?.VIII} baseVII={sectionData?.VII} planName={plan.name} onActiveChange={setActiveScenario} />
+{/* Section map nav I–X (replaces scrollable tab strip) */}
           <nav aria-label="Plan sections" className="pb-2">
             <div className="grid grid-cols-5 gap-1.5">
               {SECTIONS.map(s => {
-                const completed = hasSectionData(sectionData[s.key])
+                const completed = hasSectionData(scenarioOverride[s.key])
                 const active = activeTab === s.key
                 return (
                   <button
@@ -906,9 +940,15 @@ function PlanView({ id, onBack }) {
         <SectionRouter
           sectionKey={activeTab}
           sectionLabel={SECTIONS.find(s => s.key === activeTab)?.label || ''}
-          sectionData={sectionData[activeTab]}
+          sectionData={scenarioOverride[activeTab]}
           businessId={plan.id}
-          onSave={(content) => scheduleSave(activeTab, content)}
+          onSave={(content) => {
+            if ((activeTab === 'VII' || activeTab === 'VIII') && activeScenario) {
+              saveScenarioSection(activeScenario, activeTab, content)
+            } else {
+              scheduleSave(activeTab, content)
+            }
+          }}
           saveStatus={saveStatus}
         />
       </div>
