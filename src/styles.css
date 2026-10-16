@@ -81,3 +81,18 @@ kbd {
 
 /* Editor content anchors below sticky chrome */
 .editor-content-anchor { scroll-margin-top: 8.5rem; }
+
+
+/* ── HeroUI modal overlay guard ──────────────────────────────
+   React-Aria's overlay engine writes INLINE inset coords on the fixed wrapper
+   based on its measured viewport; with the app's html-overflow-hidden + long
+   plans it resolves near document-bottom (4.8k+ px) — the + New scenario modal
+   opened invisible. Force the wrapper to true viewport-covering so the modal
+   centers normally (works for every HeroUI modal). */
+div.flex.w-screen.fixed.inset-0[class*="z-50"] {
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  height: 100% !important;
+}
