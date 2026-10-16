@@ -896,7 +896,7 @@ function PlanView({ id, onBack }) {
             </div>
           </div>
 
-                    <ScenarioBar planId={id} baseVIII={sectionData?.VIII} baseVII={sectionData?.VII} planName={plan.name} onActiveChange={setActiveScenario} />
+                    <ScenarioBar planId={id} baseVIII={sectionData?.VIII} baseVII={sectionData?.VII} planName={plan.name} activeScenario={activeScenario} onActiveChange={setActiveScenario} />
 {/* Section map nav I–X (replaces scrollable tab strip) */}
           <nav aria-label="Plan sections" className="pb-2">
             <div className="grid grid-cols-5 gap-1.5">

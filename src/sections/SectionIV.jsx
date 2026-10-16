@@ -4,6 +4,13 @@ import { SectionPage, Group, Field, Row, CellInput, SubTitle } from '../componen
 
 const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
 
+function safeRow(si, rows) {
+  const r = rows && rows[si]
+  if (!r || typeof r !== 'object') return {} // triple-array legacy rows & missing slots render blank
+  if (Array.isArray(r)) return {} // legacy [label,value,note] triple — no month cells
+  return r
+}
+
 function emptyRow() {
   return MONTHS.reduce((a, m) => ({ ...a, [m]: '' }), {})
 }
@@ -129,7 +136,7 @@ export default function SectionIV({ data, onChange }) {
 
   function calcTotal(rows) {
     const totals = MONTHS.map(m => {
-      return rows.reduce((acc, r) => acc + (parseFloat(r[m]) || 0), 0)
+      return (rows || []).reduce((acc, r) => acc + (parseFloat((r && !Array.isArray(r) && typeof r === 'object') ? r[m] : undefined) || 0), 0)
     })
     const yearTotal = totals.reduce((a, b) => a + b, 0)
     return { totals, yearTotal }
@@ -344,11 +351,11 @@ function SalesForecastTable({ sources, rows, totals, yearTotal, onSourceChange, 
               </td>
               {MONTHS.map(m => (
                 <td key={m} className="px-1 py-1">
-                  <CellInput type="number" align="right" value={rows[si][m]} onChange={v => onCellChange(si, m, v)} />
+                  <CellInput type="number" align="right" value={safeRow(si, rows)[m] ?? ''} onChange={v => onCellChange(si, m, v)} />
                 </td>
               ))}
               <td className="px-2 py-1 text-right font-semibold whitespace-nowrap">
-                ${rows[si][MONTHS[0]] || rows[si][MONTHS[1]] || rows[si][MONTHS[2]] ? rows.reduce((a, m) => a + (parseFloat(rows[si][m]) || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : ''}
+                ${(() => { const row = safeRow(si, rows); const hasAny = MONTHS.some(m => parseFloat(row[m]) || 0); return hasAny ? MONTHS.reduce((a, m) => a + (parseFloat(row[m]) || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '' })()}
               </td>
             </tr>
           ))}
