@@ -35,8 +35,33 @@ function DocEntry({ entry, index, onUpdate, onRemove }) {
   )
 }
 
+const blankEntry = () => ({ name: '', notes: '' })
+
+// Older plan generators / loose imports may store these list fields as prose
+// strings instead of {name, notes} arrays. Normalize everything so .map()
+// never receives a non-array; semicolon-separated prose is split back into
+// editable rows, and saving migrates the stored shape to a proper array.
+function normalizeItems(items) {
+  if (Array.isArray(items)) {
+    const clean = items
+      .filter(Boolean)
+      .map(el => (typeof el === 'string' ? { name: el, notes: '' } : el))
+    return clean.length ? clean : [blankEntry()]
+  }
+  if (typeof items === 'string' && items.trim()) {
+    const rows = items
+      .split(';')
+      .map(s => s.trim())
+      .filter(Boolean)
+      .slice(0, 40)
+      .map(name => ({ name, notes: '' }))
+    return rows.length ? rows : [blankEntry()]
+  }
+  return [blankEntry()]
+}
+
 function DocumentGroup({ title, hint, items, field, data, onFieldChange }) {
-  const list = items || [{ name: '', notes: '' }]
+  const list = normalizeItems(items)
 
   const add = () => {
     const updated = [...list, { name: '', notes: '' }]
