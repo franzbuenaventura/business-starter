@@ -116,3 +116,33 @@ div.flex.w-screen.fixed.inset-0[class*="z-50"] > section {
   max-height: calc(100vh - 2rem) !important;
   overflow: auto !important;
 }
+
+/* ── Modal legibility polish: blurred backdrop + dialog border ── */
+/* @supports wrapper: the CSS minifier drops unprefixed backdrop-filter when it
+   sees the -webkit alias (target assumptions), so guard it here to survive builds */
+@supports (-webkit-backdrop-filter: blur(1px)) {
+div.flex.w-screen.fixed.inset-0[class*="z-50"] {
+  -webkit-backdrop-filter: blur(8px) !important;
+}
+}
+@supports (backdrop-filter: blur(1px)) {
+div.flex.w-screen.fixed.inset-0[class*="z-50"] {
+  backdrop-filter: blur(8px) !important;
+}
+}
+div.flex.w-screen.fixed.inset-0[class*="z-50"] {
+  -webkit-backdrop-filter: blur(8px) !important; /* kept for older Safari */
+  background: rgba(0, 0, 0, 0.45) !important;
+}
+div.flex.w-screen.fixed.inset-0[class*="z-50"] > section {
+  border: 1px solid hsl(var(--heroui-divider, 240 4% 30%)) !important;
+  border-radius: 0.875rem !important;
+  box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.06) inset !important;
+  background-color: hsl(var(--heroui-content1, 222 12% 11%)) !important;
+}
+/* Light theme keeps a real border + white surface */
+html:not(.dark) div.flex.w-screen.fixed.inset-0[class*="z-50"] > section {
+  background-color: #fff !important;
+  border-color: rgba(0, 0, 0, 0.16) !important;
+  box-shadow: 0 24px 60px -12px rgba(0, 0, 0, 0.28) !important;
+}
