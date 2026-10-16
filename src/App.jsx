@@ -713,7 +713,8 @@ function PlanView({ id, onBack }) {
       if (res.ok) {
         const updated = await res.json()
         setActiveScenario(updated)
-        setSectionData(prev => ({ ...prev, [key]: content }))  // keep dashboard live
+        // NOTE: sectionData (base rows) intentionally NOT touched here — the editor +
+        // dashboard read the scenario copy via scenarioOverride; base PDF/compare stay base.
       }
     } catch (e) { console.error('Scenario save failed:', e) }
     setSaveStatus('saved')
@@ -926,7 +927,11 @@ function PlanView({ id, onBack }) {
         </div>
       </div>
 
-      <ScenarioBar planId={id} baseVIII={sectionData?.VIII} baseVII={sectionData?.VII} planName={plan.name} activeScenario={activeScenario} onActiveChange={(sc) => { setActiveScenario(sc); if (sc) handleTabSwitch('VII') }} />
+      <ScenarioBar planId={id} baseVIII={sectionData?.VIII} baseVII={sectionData?.VII} planName={plan.name} activeScenario={activeScenario} onActiveChange={(sc) => {
+            if (saveTimerRef.current) flushSave()   // land pending base edits on the base rows first (AGY A2)
+            setActiveScenario(sc)
+            if (sc && activeTab !== 'VII' && activeTab !== 'VIII') handleTabSwitch('VII')  // jump only out of locked tabs (AGY D2)
+          }} />
 
       {/* Prev / Next section quick nav */}
       <SectionPager activeTab={activeTab} onSwitch={handleTabSwitch} sectionData={sectionData} contentRef={contentRef} />
@@ -1043,7 +1048,10 @@ function SectionRouter({ sectionKey, sectionLabel, sectionData, businessId, onSa
         </div>
       )}
       {SectionComponent ? (
-        <div className={locked ? "relative pointer-events-none select-none opacity-60" : "relative"}>
+        <div
+          {...(locked ? { inert: "" } : {})}
+          className={locked ? "relative pointer-events-none select-none opacity-60" : "relative"}
+        >
           <SectionComponent data={localData} onChange={handleChange} />
           {locked && <div className="absolute inset-0" aria-hidden="true" />}
         </div>

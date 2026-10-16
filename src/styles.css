@@ -113,8 +113,8 @@ div.flex.w-screen.fixed.inset-0[class*="z-50"] > section {
   bottom: auto !important;
   transform: translate(-50%, -50%) !important;
   margin: 0 !important;
-  max-height: calc(100vh - 2rem) !important;
-  overflow: auto !important;
+  /* NOTE: no overflow/max-height override here — HeroUI scrolls ModalBody itself;
+     forcing section scroll broke header/footer pinning (AGY audit 2026-10-16) */
 }
 
 /* ── Modal legibility polish: blurred backdrop + dialog border ── */

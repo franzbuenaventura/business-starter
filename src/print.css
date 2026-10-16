@@ -8,7 +8,14 @@
     display: none !important;
   }
 
-  @page {
+    /* AGY audit: any open modal overlay must never print — the fixed dimmed backdrop
+     would smear rgba over every printed page */
+  #scenario-portal,
+  div.flex.w-screen.fixed.inset-0[class*="z-50"],
+  [data-visualization-hidden] {
+    display: none !important;
+  }
+@page {
     margin: 1in;
   }
 
