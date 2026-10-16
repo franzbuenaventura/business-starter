@@ -926,7 +926,7 @@ function PlanView({ id, onBack }) {
         </div>
       </div>
 
-      <ScenarioBar planId={id} baseVIII={sectionData?.VIII} baseVII={sectionData?.VII} planName={plan.name} activeScenario={activeScenario} onActiveChange={setActiveScenario} />
+      <ScenarioBar planId={id} baseVIII={sectionData?.VIII} baseVII={sectionData?.VII} planName={plan.name} activeScenario={activeScenario} onActiveChange={(sc) => { setActiveScenario(sc); if (sc) handleTabSwitch('VII') }} />
 
       {/* Prev / Next section quick nav */}
       <SectionPager activeTab={activeTab} onSwitch={handleTabSwitch} sectionData={sectionData} contentRef={contentRef} />
@@ -943,9 +943,15 @@ function PlanView({ id, onBack }) {
           sectionLabel={SECTIONS.find(s => s.key === activeTab)?.label || ''}
           sectionData={scenarioOverride[activeTab]}
           businessId={plan.id}
+          locked={!!activeScenario && activeTab !== 'VII' && activeTab !== 'VIII'}
+          lockBanner={activeScenario ? `Scenario mode — editing “${activeScenario.name}”. Only Startup Costs (VII) and Financial Plan (VIII) change; this section is readonly and the base plan is untouched.` : null}
           onSave={(content) => {
-            if ((activeTab === 'VII' || activeTab === 'VIII') && activeScenario) {
-              saveScenarioSection(activeScenario, activeTab, content)
+            if (activeScenario) {
+              if (activeTab === 'VII' || activeTab === 'VIII') {
+                saveScenarioSection(activeScenario, activeTab, content)
+              }
+              // scenario mode: non-financial tabs are locked — never write base rows
+              else { console.warn('Scenario mode: section', activeTab, 'is locked (financials only)') }
             } else {
               scheduleSave(activeTab, content)
             }
@@ -988,7 +994,7 @@ function PlanView({ id, onBack }) {
 
 /* ── Section Router ─────────────────────────────────────────── */
 
-function SectionRouter({ sectionKey, sectionLabel, sectionData, businessId, onSave, saveStatus }) {
+function SectionRouter({ sectionKey, sectionLabel, sectionData, businessId, onSave, saveStatus, locked, lockBanner }) {
   const [localData, setLocalData] = useState(null)
   const dirtyRef = useRef(false)
   const localDataRef = useRef(null)
@@ -1025,11 +1031,22 @@ function SectionRouter({ sectionKey, sectionLabel, sectionData, businessId, onSa
 
   return (
     <div>
-      <div className="flex justify-end mb-3">
-        <AiDraftButton businessId={businessId} sectionId={sectionKey} onAccept={handleAiAccept} />
-      </div>
+      {!locked && (
+        <div className="flex justify-end mb-3">
+          <AiDraftButton businessId={businessId} sectionId={sectionKey} onAccept={handleAiAccept} />
+        </div>
+      )}
+      {locked && lockBanner && (
+        <div className="mb-3 rounded-medium border border-warning-300 bg-warning-100/40 px-4 py-2.5 text-xs text-warning-600 flex items-start gap-2">
+          <span className="text-base leading-none mt-0.5">🔒</span>
+          <span>{lockBanner}</span>
+        </div>
+      )}
       {SectionComponent ? (
-        <SectionComponent data={localData} onChange={handleChange} />
+        <div className={locked ? "relative pointer-events-none select-none opacity-60" : "relative"}>
+          <SectionComponent data={localData} onChange={handleChange} />
+          {locked && <div className="absolute inset-0" aria-hidden="true" />}
+        </div>
       ) : (
         <div className="text-center py-16">
           <div className="text-4xl mb-3">🚧</div>
