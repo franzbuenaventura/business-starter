@@ -114,8 +114,14 @@ export default function ScenarioBar({ planId, baseVIII, baseVII, planName, activ
               <ModalHeader className="flex flex-col gap-1">New scenario</ModalHeader>
               <ModalBody>
                 <p className="text-xs text-foreground-500">Copies the current base VII/VIII financials as the starting point. Rename and edit costs to model alternatives (budget build, bank-financed, lease-not-buy…).</p>
-                <Input label="Scenario name" value={form.name} onValueChange={v => setForm(f => ({ ...f, name: v }))} isRequired autoFocus placeholder="e.g. AAC budget build" />
-                <Textarea label="Notes (assumptions, deltas vs base)" value={form.notes} onValueChange={v => setForm(f => ({ ...f, notes: v }))} placeholder="e.g. Shell ₱19.5K/sqm; GLI ep31 labor share" />
+                <div className="flex flex-col gap-1.5">
+                  <label htmlFor="scenario-name-input" className="text-xs font-medium text-foreground-500">Scenario name</label>
+                  <Input id="scenario-name-input" aria-label="Scenario name" value={form.name} onValueChange={v => setForm(f => ({ ...f, name: v }))} isRequired placeholder="e.g. AAC budget build" />
+                </div>
+                <div className="flex flex-col gap-1.5 mt-2">
+                  <label htmlFor="scenario-notes-input" className="text-xs font-medium text-foreground-500">Notes (assumptions, deltas vs base)</label>
+                  <Textarea id="scenario-notes-input" aria-label="Notes (assumptions, deltas vs base)" value={form.notes} onValueChange={v => setForm(f => ({ ...f, notes: v }))} placeholder="e.g. Shell ₱19.5K/sqm; GLI ep31 labor share" />
+                </div>
               </ModalBody>
               <ModalFooter>
                 <Button variant="light" onPress={close}>Cancel</Button>
