@@ -20,6 +20,13 @@ export function scenarioMetrics(viii) {
   }
 }
 
+let portalEl = null
+function getPortal() {
+  if (typeof document === 'undefined') return undefined
+  if (!portalEl) { portalEl = document.createElement('div'); portalEl.id = 'scenario-portal'; document.body.appendChild(portalEl) }
+  return portalEl
+}
+
 export default function ScenarioBar({ planId, baseVIII, baseVII, planName, activeScenario, onActiveChange }) {
   const [scenarios, setScenarios] = useState([])
   const [compareOpen, setCompareOpen] = useState(false)
@@ -100,7 +107,7 @@ export default function ScenarioBar({ planId, baseVIII, baseVII, planName, activ
         )}
       </div>
       {compareOpen && <ScenarioCompare rows={[{ label: 'Base model', m: baseM }, ...scenM]} onClose={() => setCompareOpen(false)} />}
-      <Modal isOpen={isOpen} onOpenChange={onOpenChange}>
+      <Modal isOpen={isOpen} onOpenChange={onOpenChange} portalContainer={getPortal()}>
         <ModalContent>
           {(close) => (
             <form onSubmit={createScenario}>

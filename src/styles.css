@@ -89,10 +89,30 @@ kbd {
    plans it resolves near document-bottom (4.8k+ px) — the + New scenario modal
    opened invisible. Force the wrapper to true viewport-covering so the modal
    centers normally (works for every HeroUI modal). */
+/* ── HeroUI modal overlay guard v2 ──────────────────────────
+   React-Aria writes INLINE inset on the overlay; in this app (html overflow
+   hidden + inner scroll containers) its viewport measure resolves to the
+   document bottom on long plans — the + New scenario modal opened at y=4797
+   (invisible; the full-screen backdrop still trapped clicks = 'page frozen').
+   Force-CENTER the dialog content regardless of inline coords: fixed-based
+   centering via transform, immune to bad measured tops/lefts. */
 div.flex.w-screen.fixed.inset-0[class*="z-50"] {
   top: 0 !important;
   right: 0 !important;
   bottom: 0 !important;
   left: 0 !important;
   height: 100% !important;
+  max-height: 100% !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+div.flex.w-screen.fixed.inset-0[class*="z-50"] > section {
+  position: fixed !important;
+  top: 50% !important;
+  left: 50% !important;
+  bottom: auto !important;
+  transform: translate(-50%, -50%) !important;
+  margin: 0 !important;
+  max-height: calc(100vh - 2rem) !important;
+  overflow: auto !important;
 }
