@@ -31,8 +31,14 @@ if ('serviceWorker' in navigator) {
             }
           })
         })
+        let wasControlled = Boolean(navigator.serviceWorker.controller)
         navigator.serviceWorker.addEventListener('controllerchange', () => {
-          if (!window.__swReloaded) { window.__swReloaded = true; location.reload() }
+          // ignore the FIRST claim (fresh visit) — only reload on real update handover
+          if (!wasControlled) { wasControlled = true; return }
+          if (!sessionStorage.getItem('__sw_reloaded')) {
+            sessionStorage.setItem('__sw_reloaded', '1')
+            location.reload()
+          }
         })
       })
       .catch((err) => {

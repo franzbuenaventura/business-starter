@@ -140,13 +140,15 @@ export default function SectionVIII({ data, onChange }) {
   const sufUse = data?.usesOfFunds || [{ use: '', amount: '' }]
   const asmL = data?.assumptionsSchedule || [{ driver: '', value: '', source: '' }]
   const rskL = data?.riskMatrix || [{ risk: '', likelihood: '', impact: '', mitigation: '' }]
-  const returnNoi = parseFloat(data?.returnNoi) || 0
-  const returnDebtService = parseFloat(data?.returnDebtService) || 0
-  const returnEquity = parseFloat(data?.returnEquity) || 0
-  const returnAnnualCash = parseFloat(data?.returnAnnualCash) || 0
+  // AGY: comma-formatted input ('1,200,000') → parseFloat reads 1 — strip non-numerics
+  const cleanNum = v => { const n = parseFloat(String(v ?? '').replace(/[^\d.-]/g, '')); return isNaN(n) ? 0 : n }
+  const returnNoi = cleanNum(data?.returnNoi)
+  const returnDebtService = cleanNum(data?.returnDebtService)
+  const returnEquity = cleanNum(data?.returnEquity)
+  const returnAnnualCash = cleanNum(data?.returnAnnualCash)
 
   const mkH = (fld, starter) => ({
-    add: () => { const l = data?.[fld] || [{ ...starter }]; hc(fld, [...l, { ...starter }]); },
+    add: () => { const l = data?.[fld] ? [...data[fld]] : [{ ...starter }]; hc(fld, [...l, { ...starter }]); },
     update: (i, u) => { const l = data?.[fld] || []; hc(fld, l.map((r, j) => j === i ? u : r)); },
     remove: (i) => { const l = data?.[fld] || []; const n = l.filter((_, j) => j !== i); hc(fld, n.length ? n : [{ ...starter }]); },
   })
@@ -390,9 +392,16 @@ export default function SectionVIII({ data, onChange }) {
         ))}
         <AddBtn onClick={sufUseH.add}>+ Add Use</AddBtn>
         <div className={totalCls}>Total Uses: {PHP(sa(sufUse))}</div>
-        <div className={`text-sm font-semibold text-right px-3 py-2 rounded-xl border ${Math.abs(sa(sufSrc) - sa(sufUse)) <= 1 && sa(sufSrc) > 0 ? 'text-success border-success-300' : 'text-warning-600 border-warning-300'}`}>
-          {Math.abs(sa(sufSrc) - sa(sufUse)) <= 1 && sa(sufSrc) > 0 ? '✓ Balanced — sources fully fund the uses' : `⚠ Unbalanced by ${PHP(Math.abs(sa(sufSrc) - sa(sufUse)))}`}
-        </div>
+        {(() => {
+          const src = sa(sufSrc), use = sa(sufUse)
+          if (src === 0 && use === 0) return <div className="text-xs text-foreground-400 text-right px-3 py-1">Enter capitalization sources and uses to verify reconciliation</div>
+          const isBalanced = Math.abs(src - use) <= 1 && src > 0 && use > 0
+          return (
+            <div className={`text-sm font-semibold text-right px-3 py-2 rounded-xl border ${isBalanced ? 'text-success border-success-300' : 'text-warning-600 border-warning-300'}`}>
+              {isBalanced ? '✓ Balanced — sources fully fund the uses' : `⚠ Unbalanced by ${PHP(Math.abs(src - use))}`}
+            </div>
+          )
+        })()}
       </Group>
 
       {/* ── 9. Key Assumptions Schedule ── */}
@@ -413,7 +422,7 @@ export default function SectionVIII({ data, onChange }) {
       {/* ── 10. Risk & Mitigation Matrix ── */}
       <Group
         title="10. Risk & Mitigation Matrix"
-        hint="Downside planning: what could go wrong, how likely, how hard it hits, and the specific mitigation. PH commercial lenders treat this as a required underwriting exhibit.">
+        hint="Downside planning: what could go wrong, how likely, how hard it hits, and the specific mitigation. PH commercial lenders treat this as a required underwriting exhibit. Keep this to financial/execution risks — macro market risks belong in Section IV's SWOT.">
         {rskL.map((r, i) => (
           <div key={i} className="grid grid-cols-1 sm:grid-cols-[1fr_110px_110px_1fr_auto] gap-3 items-end mb-3 p-3 rounded-xl border border-divider bg-content2">
             <Field label={i === 0 ? 'Risk (construction delay, rate reprice, input inflation…)' : 'Risk'} type="text" value={r.risk} onChange={v => rskH.update(i, { ...r, risk: v })} />
@@ -435,12 +444,17 @@ export default function SectionVIII({ data, onChange }) {
           <Field label="Annual Debt Service (₱, P+I)" type="text" value={d.returnDebtService} onChange={v => hc('returnDebtService', v)} />
           <div className="flex flex-col justify-end">
             <span className={itemLabel}>DSCR (auto)</span>
-            <div className={`${numberCls} font-semibold`}>{returnDebtService > 0 && returnNoi !== 0 ? (returnNoi / returnDebtService).toFixed(2) + '×' : '—'}</div>
+            <div className={`${numberCls} font-semibold`}>{(() => {
+            const dv = returnDebtService > 0 && returnNoi !== 0 ? returnNoi / returnDebtService : null
+            if (dv == null) return '—'
+            const cls = dv >= 1.25 ? 'text-success' : dv >= 1.0 ? 'text-warning-600' : 'text-danger'
+            return <span className={cls}>{dv.toFixed(2)}×{dv < 1.0 ? ' covenant fail' : dv < 1.25 ? ' below 1.25×' : ' pass'}</span>
+          })()}</div>
           </div>
         </Row>
         <Row cols={3}>
           <Field label="Equity Invested (₱)" type="text" value={d.returnEquity} onChange={v => hc('returnEquity', v)} />
-          <Field label="Steady Annual Cash Return (₱)" type="text" value={d.returnAnnualCash} onChange={v => hc('returnAnnualCash', v)} />
+          <Field label="Steady Annual Cash Flow After Debt Service (₱)" hint="Pre-tax cash flow remaining after annual debt service (NOI − Debt Service). For all-cash plans without debt, enter steady annual operating cash." type="text" value={d.returnAnnualCash} onChange={v => hc('returnAnnualCash', v)} />
           <div className="flex flex-col justify-end">
             <span className={itemLabel}>Cash-on-Cash (auto)</span>
             <div className={`${numberCls} font-semibold`}>{returnEquity > 0 && returnAnnualCash !== 0 ? (((returnAnnualCash / returnEquity) * 100).toFixed(1)) + '%' : '—'}</div>

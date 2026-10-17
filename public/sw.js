@@ -94,7 +94,7 @@ self.addEventListener('fetch', (event) => {
           }
           return response
         })
-        .catch(() => caches.match(request).then(c => c || new Response('Offline', { status: 503 })))
+        .catch(() => caches.match(request).then(c => c || caches.match('/index.html') || caches.match('/') || new Response('Offline', { status: 503 })))
     )
     return
   }
