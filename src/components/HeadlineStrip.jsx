@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { scenarioMetrics } from './ScenarioBar.jsx'
 
-const php = n => (n == null || isNaN(n)) ? '—' : '₱' + Math.round(n).toLocaleString('en-PH')
+const php = n => (n == null || isNaN(n)) ? '—' : (n < 0 ? '−₱' + Math.round(-n).toLocaleString('en-PH') : '₱' + Math.round(n).toLocaleString('en-PH'))
 
 /* ── Plan headline strip (2026-10-16 deep-dive build #3) ──────
    4 money cards floating at the top of EVERY section of the plan
@@ -21,11 +21,30 @@ export default function HeadlineStrip({ viii, vii, activeScenarioName }) {
     if (typeof x === 'string') { try { x = JSON.parse(x) } catch { return null } }
     vii = x
     if (!vii) return null
-    if (typeof vii.totalStartupCost === 'number') return vii.totalStartupCost
-    const sum = list => (Array.isArray(list) ? list.reduce((a, r) => a + (parseFloat(String(r?.amount == null ? 0 : r.amount).replace(/,/g, '')) || 0), 0) : 0)
-    const cat = vii.startupCosts && Array.isArray(vii.startupCosts.categories) ? sum(vii.startupCosts.categories) : 0
-    const ex = vii.startupCosts && Array.isArray(vii.startupCosts.expenses) ? sum(vii.startupCosts.expenses) : 0
-    return Math.max(cat, ex) || null
+    if (typeof vii.totalStartupCost === 'number' && vii.totalStartupCost > 0) return vii.totalStartupCost
+    // AGY-final fix: legacy shapes — amounts may sit in .amount OR Fairway-style .cost;
+    // expense list may be top-level vii.expenses (plans 2/3) not under startupCosts.
+    // .amount first; fall back to .cost ONLY for rows without .amount (Fairway's
+    // categories carry draft .cost values that contradict its locked expenses rows —
+    // summing both = wrong capex; so compute amount-only vs amount+cost-fallback sums
+    // and take the SMALLER (draft cost keys can only overstate).
+    const sumOnly = (list, withCost) => (Array.isArray(list) ? list.reduce((a, r) => {
+      if (!r || typeof r !== 'object') return a
+      const raw = withCost ? (r.amount ?? r.cost) : r.amount
+      if (raw == null) return a
+      if (r.amount == null && !withCost) return a
+      return a + (parseFloat(String(raw).replace(/,/g, '')) || 0)
+    }, 0) : 0)
+    const cat = vii.startupCosts && Array.isArray(vii.startupCosts.categories) ? Math.max(sumOnly(vii.startupCosts.categories, false) === 0 ? sumOnly(vii.startupCosts.categories, true) : 0, 0) : 0
+    // simpler & correct: amount-only sums; if that totals 0 across BOTH lists AND cost-only exists, use cost:
+    const catAmt = vii.startupCosts && Array.isArray(vii.startupCosts.categories) ? sumOnly(vii.startupCosts.categories, false) : 0
+    const catCost = vii.startupCosts && Array.isArray(vii.startupCosts.categories) ? sumOnly(vii.startupCosts.categories, true) : 0
+    const exAmt = sumOnly(vii.expenses || [], false)
+    const catUse = catAmt > 0 ? catAmt : catCost
+    // Locked-expenses-wins law (AGY-confirmed Fairway trap): concrete amount-bearing
+    // expense rows are the verified truth; cost-only categories are legacy drafts.
+    if (exAmt > 0) return exAmt
+    return catUse || null
   }, [vii])
 
   if (!m) return null
@@ -44,10 +63,12 @@ export default function HeadlineStrip({ viii, vii, activeScenarioName }) {
             <span className={`text-sm font-semibold tabular-nums ${it.tone}`}>{it.value}</span>
           </div>
         ))}
-        {capex != null && m.net > 0 && (
+        {capex != null && (
           <div className="flex flex-col justify-center min-w-[104px] px-2.5 py-0.5">
             <span className="text-[10px] uppercase tracking-wide text-foreground-500">Payback @ Y1 pace</span>
-            <span className="text-sm font-semibold tabular-nums">{(capex / m.net).toFixed(1)} yrs</span>
+            <span className="text-sm font-semibold tabular-nums">
+              {m.net <= 0 ? 'ramp/neg' : (capex / m.net > 25 ? '>25 (ramp yr)' : (capex / m.net).toFixed(1) + ' yrs')}
+            </span>
           </div>
         )}
         {activeScenarioName && (

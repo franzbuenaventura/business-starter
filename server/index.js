@@ -302,7 +302,20 @@ function createApp(db, persistFn) {
 
   app.get('/api/businesses', (req, res) => {
     const businesses = rowsToObjects(db.exec('SELECT * FROM businesses ORDER BY id DESC'))
-    businesses.forEach(b => { b.status = getBusinessStatus(db, b) })
+    // 2026-10-16 deep-dive fix + AGY-final slimming: cards only need the completion
+    // COUNT (attaching full content bloated the list from ~2KB to ~480KB). Return a
+    // light fill-mask { key: true|false } so hasSectionData-based client code keeps
+    // working with ~90 bytes/plan; full content still comes from GET /:id.
+    const sectionRows = rowsToObjects(db.exec('SELECT plan_id, section_key, content FROM plan_sections ORDER BY plan_id, section_key'))
+    const byPlan = {}
+    sectionRows.forEach(s => {
+      if (!byPlan[s.plan_id]) byPlan[s.plan_id] = {}
+      byPlan[s.plan_id][s.section_key] = hasSectionData(s.content) ? true : false
+    })
+    businesses.forEach(b => {
+      b.sections = byPlan[b.id] || {}
+      b.status = getBusinessStatus(db, b)
+    })
     res.json(businesses)
   })
 
@@ -367,6 +380,52 @@ function createApp(db, persistFn) {
   app.get('/api/sections', (req, res) => { res.json(SECTIONS.map(key => ({ key, label: SECTION_LABELS[key] || key }))) })
 
   // Export all businesses + their sections as JSON
+  // Cross-plan portfolio summary (2026-10-16 deep-dive build #2): one headline row per
+  // plan (12-mo Y1 revenue / net / margin / capex) + portfolio totals. Shape-safe for
+  // legacy plans whose capex lives in VII.expenses vs startupCosts.categories — take
+  // the max of the two sums when both present (newer plans mirror rows into both).
+  app.get('/api/summary', (req, res) => {
+    const num = v => { const n = parseFloat(String(v == null ? 0 : v).replace(/,/g, '')); return isNaN(n) ? 0 : n }
+    // AGY-final: legacy rows may carry .cost (Fairway categories) instead of .amount
+    const sumList = list => (Array.isArray(list) ? list.reduce((a, r) => a + num(r && (r.amount ?? r.cost)), 0) : 0)
+    const businesses = rowsToObjects(db.exec('SELECT id, name, industry, status FROM businesses ORDER BY id'))
+    const out = businesses.map(b => {
+      const row8 = queryOne(db, 'SELECT content FROM plan_sections WHERE plan_id = ? AND section_key = ?', [b.id, 'VIII'])
+      const row7 = queryOne(db, 'SELECT content FROM plan_sections WHERE plan_id = ? AND section_key = ?', [b.id, 'VII'])
+      const v8 = safeParseJson(row8 && row8.content) || {}
+      const v7 = safeParseJson(row7 && row7.content) || {}
+      const rev = sumList(v8.revenueItems)
+      const cogs = sumList(v8.cogsItems)
+      const opex = sumList(v8.operatingExpenses)
+      const net = rev - cogs - opex
+      const catSum = v7.startupCosts && Array.isArray(v7.startupCosts.categories) ? sumList(v7.startupCosts.categories) : 0
+      const exSum = sumList(v7.expenses)
+      const explicitTotal = typeof v7.totalStartupCost === 'number' ? v7.totalStartupCost : (typeof (v7.startupCosts || {}).total === 'number' ? v7.startupCosts.total : null)
+      // Fairway-law (AGY): legacy draft .cost columns can OVERSTATE vs the locked
+      // expenses rows — amount-only sums first; .cost fallback only when amount-only=0;
+      // explicit totals win only when positive.
+      const sumAmtOnly = list => (Array.isArray(list) ? list.reduce((a, r) => a + (r && typeof r === 'object' && r.amount != null ? num(r.amount) : 0), 0) : 0)
+      const sumCostFall = list => (Array.isArray(list) ? list.reduce((a, r) => a + (r && typeof r === 'object' ? num(r.amount ?? r.cost) : 0), 0) : 0)
+      const catAmt = v7.startupCosts && Array.isArray(v7.startupCosts.categories) ? sumAmtOnly(v7.startupCosts.categories) : 0
+      const catUse = catAmt > 0 ? catAmt : sumCostFall(v7.startupCosts && v7.startupCosts.categories)
+      const exAmt = sumAmtOnly(v7.expenses)
+      const capex = explicitTotal && explicitTotal > 0 ? explicitTotal : (exAmt > 0 ? exAmt : catUse)
+      const sections = queryAll(db, 'SELECT section_key, content FROM plan_sections WHERE plan_id = ?', [b.id])
+      const completed = sections.filter(s => hasSectionData(s.content)).length
+      const scenarios = queryAll(db, 'SELECT id, name FROM plan_scenarios WHERE plan_id = ?', [b.id]).length
+      return {
+        id: b.id, name: b.name, industry: b.industry, completion: completed,
+        scenarios, revenue: rev, cogs, opex, net,
+        margin: rev ? Math.round((net / rev) * 1000) / 10 : null,
+        capex, paybackYears: net > 0 ? Math.round((capex / net) * 100) / 100 : null,
+      }
+    })
+    const totals = out.reduce((a, p) => ({
+      revenue: a.revenue + p.revenue, net: a.net + p.net, capex: a.capex + p.capex,
+    }), { revenue: 0, net: 0, capex: 0 })
+    res.json({ plans: out, totals, generatedAt: new Date().toISOString() })
+  })
+
   app.get('/api/export', (req, res) => {
     const businesses = rowsToObjects(db.exec('SELECT * FROM businesses ORDER BY id DESC'))
     const sections = rowsToObjects(db.exec('SELECT plan_id, section_key, content FROM plan_sections ORDER BY plan_id, section_key'))

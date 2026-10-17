@@ -172,9 +172,11 @@ function ScenarioCompare({ rows, onClose }) {
                 const val = row.get(r.m)
                 const bothNum = base != null && val != null && !isNaN(base) && !isNaN(val)
                 const d = bothNum ? val - base : null
-                const pct = bothNum && base !== 0 ? (d / Math.abs(base)) * 100 : null
-                const good = row.label === 'Operating expenses' || row.label === 'COGS' ? (d != null && d < 0) : (d != null && d > 0)
-                const bad = row.label === 'Operating expenses' || row.label === 'COGS' ? (d != null && d > 0) : (d != null && d < 0)
+                // AGY-final: margin deltas are percentage POINTS (no second %); startup capex = cost row (savings = green)
+                const pct = bothNum && base !== 0 && row.label !== 'Net margin' ? (d / Math.abs(base)) * 100 : null
+                const isCost = row.label === 'Operating expenses' || row.label === 'COGS' || row.label === 'Startup (scenario)'
+                const good = isCost ? (d != null && d < 0) : (d != null && d > 0)
+                const bad = isCost ? (d != null && d > 0) : (d != null && d < 0)
                 return (
                   <td key={i} className="text-right py-1.5 px-3">
                     <div>{row.fmt(val)}</div>

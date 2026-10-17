@@ -68,7 +68,7 @@ export default function PortfolioView({ onOpenPlan }) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-divider text-foreground-500 text-xs">
-              <th className="text-left py-2.5 px-3">Plan</th>
+              <th className="text-left py-2.5 px-3 sticky left-0 bg-content1">Plan</th>
               <th className="text-right py-2.5 px-3">Y1 revenue</th>
               <th className="text-right py-2.5 px-3">Y1 net op. income</th>
               <th className="text-right py-2.5 px-3">Margin</th>
@@ -84,10 +84,13 @@ export default function PortfolioView({ onOpenPlan }) {
               return (
                 <tr
                   key={p.id}
-                  className="border-b border-divider/50 hover:bg-content2 cursor-pointer"
+                  tabIndex={0}
+                  role="button"
+                  onKeyDown={e => { if ((e.key === 'Enter' || e.key === ' ') && onOpenPlan) { e.preventDefault(); onOpenPlan(p.id) } }}
+                  className="border-b border-divider/50 hover:bg-content2 cursor-pointer focus:outline-none focus:bg-content2"
                   onClick={() => onOpenPlan && onOpenPlan(p.id)}
                 >
-                  <td className="py-2.5 px-3">
+                  <td className="py-2.5 px-3 sticky left-0 bg-content1">
                     <div className="font-medium">{p.name}</div>
                     <div className="text-[11px] text-foreground-500">{p.industry || '—'} · {p.completion}/10 sections · {p.scenarios} scenario{p.scenarios === 1 ? '' : 's'}</div>
                   </td>

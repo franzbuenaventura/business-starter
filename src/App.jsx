@@ -60,6 +60,8 @@ const STATUS_OPTIONS = [
 /* ── Helpers ────────────────────────────────────────────────── */
 
 function hasSectionData(data) {
+  if (data === true) return true   // list-payload fill-mask form (server-precomputed)
+  if (data === false || data == null) return false
   if (!data) return false
   let parsed = data
   if (typeof data === 'string') {
@@ -1025,7 +1027,7 @@ function PlanView({ id, onBack }) {
 function PrintSnapshot({ viii, vii, planName, activeScenario }) {
   const m = scenarioMetrics(viii)
   if (!m) return null
-  const fmtPhp = v => (v == null || isNaN(v)) ? '—' : '₱' + Math.round(Number(v)).toLocaleString('en-PH')
+  const fmtPhp = v => (v == null || isNaN(v)) ? '—' : (v < 0 ? '−₱' + Math.round(-v).toLocaleString('en-PH') : '₱' + Math.round(v).toLocaleString('en-PH'))
   const capex = (() => {
     if (!vii) return null
     const sum = list => (Array.isArray(list) ? list.reduce((a, r) => a + (parseFloat(String(r?.amount == null ? 0 : r.amount).replace(/,/g, '')) || 0), 0) : 0)
@@ -1045,7 +1047,7 @@ function PrintSnapshot({ viii, vii, planName, activeScenario }) {
           <tr><td className="py-1 pr-3 text-foreground-500">Net operating income</td><td className="text-right tabular-nums font-medium">{fmtPhp(m.net)}</td></tr>
           <tr><td className="py-1 pr-3 text-foreground-500">Net margin</td><td className="text-right tabular-nums">{m.margin == null ? '—' : m.margin.toFixed(1) + '%'}</td></tr>
           {capex != null && <tr><td className="py-1 pr-3 text-foreground-500">Total capital required (VII)</td><td className="text-right tabular-nums">{fmtPhp(capex)}</td></tr>}
-          {capex != null && m.net > 0 && <tr><td className="py-1 pr-3 text-foreground-500">Payback @ Y1 net pace</td><td className="text-right tabular-nums">{(capex / m.net).toFixed(1)} years</td></tr>}
+          {capex != null && <tr><td className="py-1 pr-3 text-foreground-500">Payback @ Y1 net pace</td><td className="text-right tabular-nums">{m.net <= 0 ? 'ramp year — see VIII notes' : (capex / m.net > 25 ? 'ramp year — stabilized payback per VIII' : (capex / m.net).toFixed(1) + ' years')}</td></tr>}
         </tbody>
       </table>
       {sm && activeScenario && (
@@ -1060,18 +1062,21 @@ function PrintSnapshot({ viii, vii, planName, activeScenario }) {
             </thead>
             <tbody>
               {[
-                { label: '12-mo revenue', get: x => x?.rev },
-                { label: 'Operating expenses', get: x => x?.opex },
-                { label: 'Net operating income', get: x => x?.net },
+                { label: '12-mo revenue', get: x => x?.rev, isCost: false },
+                { label: 'Operating expenses', get: x => x?.opex, isCost: true },
+                { label: 'Net operating income', get: x => x?.net, isCost: false },
               ].map(row => {
                 const b = row.get(m), s = row.get(sm)
                 const d = (b != null && s != null) ? s - b : null
+                // AGY-final: lower cost = green; keep the ₱ symbol on deltas
+                const tone = d == null ? '' : ((row.isCost ? d < 0 : d > 0) ? 'text-success' : d === 0 ? '' : 'text-danger')
+                const dstr = d == null ? '—' : (d < 0 ? '−' : '+') + fmtPhp(Math.abs(d))
                 return (
                   <tr key={row.label} className="border-b border-divider/50">
                     <td className="py-1 pr-3 text-foreground-500">{row.label}</td>
                     <td className="py-1 px-3 text-right tabular-nums">{fmtPhp(b)}</td>
                     <td className="py-1 px-3 text-right tabular-nums">{fmtPhp(s)}</td>
-                    <td className={`py-1 px-3 text-right tabular-nums ${d == null ? '' : d >= 0 ? 'text-success' : 'text-danger'}`}>{d == null ? '—' : (d > 0 ? '+' : '−') + fmtPhp(Math.abs(d)).slice(1)}</td>
+                    <td className={`py-1 px-3 text-right tabular-nums ${tone}`}>{dstr}</td>
                   </tr>
                 )
               })}
