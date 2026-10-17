@@ -33,7 +33,7 @@ import './print.css'
 const API = '/api/businesses'
 const SECTIONS = [
   { key: 'I', label: 'Executive Summary', tab: 'Summary' },
-  { key: 'II', label: 'Company & Organization', tab: 'Company & Org', merged: ['VI'] },
+  { key: 'II', label: 'Company Description', tab: 'Company & Org', merged: ['VI'] },
   { key: 'III', label: 'Products & Services', tab: 'Products' },
   { key: 'IV', label: 'Marketing Plan', tab: 'Marketing' },
   { key: 'V', label: 'Operational Plan', tab: 'Operations' },
@@ -43,6 +43,9 @@ const SECTIONS = [
   { key: 'IX', label: 'Appendices', tab: 'Appendices' },
   { key: 'X', label: 'Funding & Final Steps', tab: 'Funding' },
 ]
+
+// Tabs that actually appear in the UI (VI renders inside the merged II tab)
+const VISIBLE_SECTIONS = SECTIONS.filter(s => s.key !== 'VI')
 
 const SECTION_COMPONENTS = {
   I: SectionI, II: SectionII, III: SectionIII, IV: SectionIV,
@@ -136,9 +139,9 @@ function useDebounced(value, delay = 300) {
 /* ── App ────────────────────────────────────────────────────── */
 
 function SectionPager({ activeTab, onSwitch, sectionData, contentRef }) {
-  const idx = SECTIONS.findIndex(s => s.key === activeTab)
-  const prev = SECTIONS[idx - 1]
-  const next = SECTIONS[idx + 1]
+  const idx = VISIBLE_SECTIONS.findIndex(s => s.key === activeTab)
+  const prev = VISIBLE_SECTIONS[idx - 1]
+  const next = VISIBLE_SECTIONS[idx + 1]
   const go = k => { onSwitch(k); requestAnimationFrame(() => contentRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })) }
   return (
     <div className="app-chrome max-w-3xl mx-auto px-4 sm:px-6 pt-1 flex items-center justify-between text-xs no-print">
@@ -146,7 +149,7 @@ function SectionPager({ activeTab, onSwitch, sectionData, contentRef }) {
         className={`flex items-center gap-1.5 py-1.5 px-2 rounded-medium transition-colors ${prev ? 'text-foreground-500 hover:text-foreground hover:bg-content2/50' : 'opacity-0 pointer-events-none'}`}>
         <span aria-hidden>←</span><span className="hidden sm:inline">{prev && <>{prev.key} {prev.tab || prev.label}</>}</span><span className="sm:hidden">Prev</span>
       </button>
-      <span className="text-foreground-400">{idx + 1} of {SECTIONS.length}</span>
+      <span className="text-foreground-400">{idx + 1} of {VISIBLE_SECTIONS.length}</span>
       <button type="button" disabled={!next} onClick={() => next && go(next.key)}
         className={`flex items-center gap-1.5 py-1.5 px-2 rounded-medium transition-colors ${next ? 'text-foreground-500 hover:text-foreground hover:bg-content2/50' : 'opacity-0 pointer-events-none'}`}>
         <span className="sm:hidden">Next</span><span className="hidden sm:inline">{next && <>{next.key} {next.tab || next.label}</>}</span><span aria-hidden>→</span>
@@ -680,6 +683,26 @@ function PlanView({ id, onBack }) {
 
   // Debounced save function
   const scheduleSave = useCallback((key, content) => {
+    // Merged-tab guard (Company & Org renders TWO routers sharing one debounce slot):
+    // never let a save for a different section silently overwrite a pending one.
+    if (saveTimerRef.current && pendingDataRef.current && pendingDataRef.current.key !== key) {
+      // immediate write of the older pending edit before scheduling the new key
+      const { key: pk, content: pc } = pendingDataRef.current
+      pendingDataRef.current = null
+      clearTimeout(saveTimerRef.current)
+      saveTimerRef.current = null
+      const url0 = `${API}/${id}/sections/${pk}`
+      if (!navigator.onLine) {
+        const q = JSON.parse(localStorage.getItem('business-starter-offline-queue') || '[]')
+        q.push({ id: `${Date.now()}-${Math.random().toString(36).slice(2,8)}`, method: 'PUT', url: url0, body: { content: pc }, ts: Date.now() })
+        localStorage.setItem('business-starter-offline-queue', JSON.stringify(q))
+        setSectionData(prev => ({ ...prev, [pk]: pc }))
+      } else {
+        apiFetch(url0, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ content: pc }) })
+          .then(r => { if (r.ok) setSectionData(prev => ({ ...prev, [pk]: pc })) })
+          .catch(e => console.error('Merged-tab pending flush failed:', pk, e))
+      }
+    }
     pendingDataRef.current = { key, content }
     setSaveStatus('saving')
 
@@ -744,7 +767,8 @@ function PlanView({ id, onBack }) {
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current)
       saveTimerRef.current = null
-      const { key, content } = pendingDataRef.current
+      const pending = pendingDataRef.current
+      const { key, content } = pending || { key: null, content: undefined }
       if (key && content !== undefined) {
         const url = `${API}/${id}/sections/${key}`
         const body = { content }

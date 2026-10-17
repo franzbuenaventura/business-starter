@@ -186,7 +186,7 @@ export default function SectionIV({ data, onChange }) {
       </Group>
 
       {/* ==================== 4. PRODUCT/SERVICE FEATURES AND BENEFITS ==================== */}
-      <div className="text-sm text-foreground-600 bg-content2 border border-divider rounded-xl px-4 py-3 leading-relaxed mb-6">
+      <div className="no-print text-sm text-foreground-600 bg-content2 border border-divider rounded-xl px-4 py-3 leading-relaxed mb-6">
         <strong>Features &amp; Benefits → Products &amp; Services (tab III).</strong> One source of truth — this tab no longer duplicates the product worksheet. Legacy text stays saved in the plan data.
       </div>
 

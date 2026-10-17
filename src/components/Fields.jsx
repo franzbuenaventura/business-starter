@@ -1,4 +1,5 @@
 import { Accordion, AccordionItem } from '@heroui/react'
+import { PrintModeContext } from './RichText.jsx'
 import { Card, CardBody, Input as HeroInput } from '@heroui/react'
 import RichText from './RichText.jsx'
 
@@ -91,26 +92,43 @@ export function CellInput({ value, onChange, placeholder, type = 'text', align =
 /* CollapsibleGroup: like Group but starts collapsed; content preserved in the DOM
    (not unmounted) so autosave + input values stay intact while hidden. Used for
    supplementary/conditional worksheet blocks (2026-10-16 section cleanup). */
+function PrintContextGate({ children }) {
+  // Reads PrintModeContext (provided true by the print view) to switch rendering.
+  const ctx = RichTextContextValue()
+  return children(ctx)
+}
 export function CollapsibleGroup({ title, hint, children, badge }) {
   return (
-    <Card shadow="none" className="border border-divider bg-content1 mb-6">
-      <CardBody className="px-5 py-3">
-        <Accordion
-          selectionMode="single"
-          className="px-0"
-          itemClasses={{ title: 'text-base font-semibold text-foreground', trigger: 'py-2', content: 'pb-4' }}
-        >
-          <AccordionItem
-            key="cg"
-            aria-label={title}
-            startContent={badge}
-            title={title}
-          >
-            {hint && <p className="text-sm text-foreground-500 mb-4">{hint}</p>}
-            {children}
-          </AccordionItem>
-        </Accordion>
-      </CardBody>
-    </Card>
+    <PrintModeContext.Consumer>
+      {printMode => printMode ? (
+        <div className="mb-6 border-b border-divider pb-4">
+          <h4 className="text-base font-semibold text-foreground mb-1">{title}</h4>
+          {hint && <p className="text-sm text-foreground-500 mb-3">{hint}</p>}
+          {children}
+        </div>
+      ) : (
+        <Card shadow="none" className="border border-divider bg-content1 mb-6">
+          <CardBody className="px-5 py-3">
+            <Accordion
+              selectionMode="single"
+              keepContentMounted
+              className="px-0"
+              itemClasses={{ title: 'text-base font-semibold text-foreground', trigger: 'py-2', content: 'pb-4' }}
+            >
+              <AccordionItem
+                key="cg"
+                keepContentMounted
+                aria-label={title}
+                startContent={badge}
+                title={title}
+              >
+                {hint && <p className="text-sm text-foreground-500 mb-4">{hint}</p>}
+                {children}
+              </AccordionItem>
+            </Accordion>
+          </CardBody>
+        </Card>
+      )}
+    </PrintModeContext.Consumer>
   )
 }

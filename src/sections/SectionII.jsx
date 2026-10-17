@@ -80,7 +80,7 @@ export default function SectionII({ data, onChange }) {
           placeholder="Describe your industry, its current state, and key trends shaping its future."
           tall
         />
-<div className="text-sm text-foreground-600 bg-content2 border border-divider rounded-xl px-4 py-3 leading-relaxed">
+<div className="no-print text-sm text-foreground-600 bg-content2 border border-divider rounded-xl px-4 py-3 leading-relaxed">
            <strong>Competitors → Market &amp; Sales Strategy (tab IV).</strong> The competitive analysis lives with the market worksheet — one source of truth.
          </div>
       </Group>
