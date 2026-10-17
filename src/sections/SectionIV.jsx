@@ -186,11 +186,9 @@ export default function SectionIV({ data, onChange }) {
       </Group>
 
       {/* ==================== 4. PRODUCT/SERVICE FEATURES AND BENEFITS ==================== */}
-      <Group title="Product/Service Features & Benefits" number="4">
-        <Field label="Features" hint="What makes your offering distinctive? What does it include, and what sets it apart from alternatives?" value={d.productFeatures} onChange={v => set('productFeatures', v)} placeholder="Key features that differentiate your product or service..." />
-        <Field label="Benefits" hint="What the customer actually gains — how does it save them time, reduce costs, solve a problem, or improve their situation?" value={d.productBenefits} onChange={v => set('productBenefits', v)} placeholder="Customer benefits — time saved, costs reduced, problems solved..." />
-        <Field label="After-Sales Support" hint="Delivery options, warranties, satisfaction guarantees, service contracts, customer support, training, return/refund policies." value={d.afterSalesSupport} onChange={v => set('afterSalesSupport', v)} placeholder="Warranties, guarantees, support, training, return policies..." />
-      </Group>
+      <div className="text-sm text-foreground-600 bg-content2 border border-divider rounded-xl px-4 py-3 leading-relaxed mb-6">
+        <strong>Features &amp; Benefits → Products &amp; Services (tab III).</strong> One source of truth — this tab no longer duplicates the product worksheet. Legacy text stays saved in the plan data.
+      </div>
 
       {/* ==================== 5. TARGET CUSTOMER ==================== */}
       <Group title="Target Customer" number="5">

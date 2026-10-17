@@ -1,3 +1,4 @@
+import { Accordion, AccordionItem } from '@heroui/react'
 import { Card, CardBody, Input as HeroInput } from '@heroui/react'
 import RichText from './RichText.jsx'
 
@@ -85,5 +86,31 @@ export function CellInput({ value, onChange, placeholder, type = 'text', align =
         align === 'right' ? 'text-right' : ''
       } text-foreground`}
     />
+  )
+}
+/* CollapsibleGroup: like Group but starts collapsed; content preserved in the DOM
+   (not unmounted) so autosave + input values stay intact while hidden. Used for
+   supplementary/conditional worksheet blocks (2026-10-16 section cleanup). */
+export function CollapsibleGroup({ title, hint, children, badge }) {
+  return (
+    <Card shadow="none" className="border border-divider bg-content1 mb-6">
+      <CardBody className="px-5 py-3">
+        <Accordion
+          selectionMode="single"
+          className="px-0"
+          itemClasses={{ title: 'text-base font-semibold text-foreground', trigger: 'py-2', content: 'pb-4' }}
+        >
+          <AccordionItem
+            key="cg"
+            aria-label={title}
+            startContent={badge}
+            title={title}
+          >
+            {hint && <p className="text-sm text-foreground-500 mb-4">{hint}</p>}
+            {children}
+          </AccordionItem>
+        </Accordion>
+      </CardBody>
+    </Card>
   )
 }

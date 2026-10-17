@@ -80,14 +80,9 @@ export default function SectionII({ data, onChange }) {
           placeholder="Describe your industry, its current state, and key trends shaping its future."
           tall
         />
-        <Field
-          label="Competitive Landscape"
-          hint="Who are your competitors (local, regional, national, or global)? What will it take to outperform them?"
-          value={d.competitiveLandscape}
-          onChange={set('competitiveLandscape')}
-          placeholder="Identify your key competitors and describe what it will take to compete effectively."
-          tall
-        />
+<div className="text-sm text-foreground-600 bg-content2 border border-divider rounded-xl px-4 py-3 leading-relaxed">
+           <strong>Competitors → Market &amp; Sales Strategy (tab IV).</strong> The competitive analysis lives with the market worksheet — one source of truth.
+         </div>
       </Group>
 
       <Group title="6. Legal Structure & Ownership">

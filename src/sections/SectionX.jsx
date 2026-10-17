@@ -1,5 +1,5 @@
 import { Checkbox } from '@heroui/react'
-import { SectionPage, Group, Field } from '../components/Fields.jsx'
+import { SectionPage, Group, Field, CollapsibleGroup } from '../components/Fields.jsx'
 
 function TextField({ label, hint, value, onChange, field }) {
   return (
@@ -23,7 +23,7 @@ export default function SectionX({ data, onChange }) {
   const d = data || {}
 
   return (
-    <SectionPage title="Refining the Plan" intro="Tailor your business plan for your intended audience and business type.">
+    <SectionPage title="Funding & Final Steps" intro="Capital raise worksheets (bankers / investors) and the final pre-publication steps. Industry-specific practice worksheets live in the collapsed supplementary block below — keep them only where they genuinely apply.">
       {/* ── Raising Capital from Bankers ── */}
       <Group title="Raising Capital from Bankers">
         <TextField label="Borrowing Amount and Use of Funds" hint="How much you're borrowing and exactly how you'll use the funds." value={d} onChange={onChange} field="bankers_borrowingAmount" />
@@ -32,7 +32,7 @@ export default function SectionX({ data, onChange }) {
         <TextField label="Collateral and Existing Liens" hint="The collateral you're offering, and a full list of any existing liens against it." value={d} onChange={onChange} field="bankers_collateral" />
       </Group>
 
-      {/* ── Raising Capital from Investors ── */}
+{/* ── Raising Capital from Investors ── */}
       <Group title="Raising Capital from Investors">
         <TextField label="Capital Needed Now and in the Future" hint="How much money do you need now, and how much additional capital over the next 2-5 years?" value={d} onChange={onChange} field="investors_capitalNeeded" />
         <TextField label="Fund Deployment and Growth Plan" hint="How you'll deploy the funds and how that will drive growth." value={d} onChange={onChange} field="investors_fundDeployment" />
@@ -44,7 +44,15 @@ export default function SectionX({ data, onChange }) {
         <TextField label="Investor Involvement in Governance" hint="How involved investors will be in governance or management decisions." value={d} onChange={onChange} field="investors_governanceInvolvement" />
       </Group>
 
-      {/* ── Manufacturing Businesses ── */}
+
+
+      {/* ── Industry practice (supplementary — collapsed) ── */}
+      <CollapsibleGroup
+        title="Industry practice worksheets (supplementary)"
+        badge={<span className="text-[10px] px-2 py-0.5 rounded-full bg-divider/40 text-foreground-500 mr-2">optional</span>}
+        hint="Service · Retail · E-Commerce · Manufacturing · SaaS worksheets — existing content is preserved; skip what doesn't apply."
+      >
+  {/* ── Manufacturing Businesses ── */}
       <Group title="Manufacturing Businesses">
         <TextField label="Manufacturing Process" hint="Walk through the full manufacturing process from raw materials to finished product." value={d} onChange={onChange} field="mfg_process" />
         <TextField label="Equipment and Production Capacity" hint="Describe the equipment you'll use, including production capacity and any limitations." value={d} onChange={onChange} field="mfg_equipment" />
@@ -107,6 +115,8 @@ export default function SectionX({ data, onChange }) {
         <TextField label="Key Metrics" hint="MRR, ARR, CAC, LTV, churn rate, and other key metrics you'll track." value={d} onChange={onChange} field="saas_keyMetrics" />
       </Group>
 
+      
+      </CollapsibleGroup>
       {/* ── Final Steps ── */}
       <Group title="Final Steps">
         <div className="flex flex-col gap-3 mb-6">

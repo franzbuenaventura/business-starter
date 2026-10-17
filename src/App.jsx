@@ -33,7 +33,7 @@ import './print.css'
 const API = '/api/businesses'
 const SECTIONS = [
   { key: 'I', label: 'Executive Summary', tab: 'Summary' },
-  { key: 'II', label: 'Company Description', tab: 'Company' },
+  { key: 'II', label: 'Company & Organization', tab: 'Company & Org', merged: ['VI'] },
   { key: 'III', label: 'Products & Services', tab: 'Products' },
   { key: 'IV', label: 'Marketing Plan', tab: 'Marketing' },
   { key: 'V', label: 'Operational Plan', tab: 'Operations' },
@@ -41,7 +41,7 @@ const SECTIONS = [
   { key: 'VII', label: 'Startup Expenses & Capitalization', tab: 'Startup Costs' },
   { key: 'VIII', label: 'Financial Plan', tab: 'Financials' },
   { key: 'IX', label: 'Appendices', tab: 'Appendices' },
-  { key: 'X', label: 'Refining the Plan', tab: 'Refining' },
+  { key: 'X', label: 'Funding & Final Steps', tab: 'Funding' },
 ]
 
 const SECTION_COMPONENTS = {
@@ -919,7 +919,7 @@ function PlanView({ id, onBack }) {
 {/* Section map nav I–X (replaces scrollable tab strip) */}
           <nav aria-label="Plan sections" className="pb-2">
             <div className="grid grid-cols-5 gap-1.5">
-              {SECTIONS.map(s => {
+              {SECTIONS.filter(s => s.key !== 'VI').map(s => {
                 const completed = hasSectionData(scenarioOverride[s.key])
                 const active = activeTab === s.key
                 return (
@@ -963,7 +963,38 @@ function PlanView({ id, onBack }) {
         tabIndex={-1}
         aria-label={`Section ${activeTab}: ${SECTIONS.find(s => s.key === activeTab)?.label || ''}`}
       >
-        <SectionRouter
+                {activeTab === 'II' ? (
+          <>
+            <SectionRouter
+          sectionKey={'II'}
+          sectionLabel={'Company Description'}
+          sectionData={scenarioOverride['II']}
+          businessId={plan.id}
+          locked={!!activeScenario}
+          lockBanner={activeScenario ? `Scenario mode — editing “${activeScenario.name}”. Only VII/VIII change; Company & Organization is readonly.` : null}
+          onSave={(content) => {
+            // merged Company & Organization tab — never financial; scenario mode locks it
+            if (!activeScenario) scheduleSave('II', content)
+            else console.warn('Scenario mode: section II locked (financials only)')
+          }}
+          saveStatus={saveStatus}
+        />
+            <SectionRouter
+          sectionKey={'VI'}
+          sectionLabel={'Management & Organization'}
+          sectionData={scenarioOverride['VI']}
+          businessId={plan.id}
+          locked={!!activeScenario}
+          lockBanner={activeScenario ? `Scenario mode — editing “${activeScenario.name}”. Only VII/VIII change.` : null}
+          onSave={(content) => {
+            if (!activeScenario) scheduleSave('VI', content)
+            else console.warn('Scenario mode: section VI locked (financials only)')
+          }}
+          saveStatus={saveStatus}
+        />
+          </>
+        ) : (
+<SectionRouter
           sectionKey={activeTab}
           sectionLabel={SECTIONS.find(s => s.key === activeTab)?.label || ''}
           sectionData={scenarioOverride[activeTab]}
@@ -983,6 +1014,7 @@ function PlanView({ id, onBack }) {
           }}
           saveStatus={saveStatus}
         />
+        )}
       </div>
 
       {/* Keyboard shortcut hint footer */}

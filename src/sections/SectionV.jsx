@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { SectionPage, Group, Field, Row, CellInput, SubTitle } from '../components/Fields.jsx'
+import { SectionPage, Group, Field, Row, CellInput, SubTitle, CollapsibleGroup } from '../components/Fields.jsx'
 
 const INSURANCE_TYPES = [
   'General Liability',
@@ -147,35 +147,35 @@ export default function SectionV({ data, onChange }) {
       </Group>
 
       {/* ==================== 4. HOME-BASED LOCATION ==================== */}
-      <Group title="Home-Based Location" number="4">
-        <Field label="Home-Based Business? (Overview)" hint="If your business operates from home, describe the overall arrangement and why it suits your needs." value={d.homeBasedLocation} onChange={v => set('homeBasedLocation', v)} placeholder="Describe your home-based setup and why it works for your business..." />
-
-        <SubTitle>Physical Location & Zoning</SubTitle>
-        <Field label="Dedicated Space" hint="Describe the specific area of your home used for business (e.g., a 200 sq ft converted garage or a dedicated office)." type="text" value={d.homeBasedDedicatedSpace} onChange={v => set('homeBasedDedicatedSpace', v)} placeholder="e.g. 200 sq ft converted garage / dedicated home office" />
-        <Field label="Zoning Compliance" hint="Indicate that you're in compliance with local zoning laws. Check with your HOA to ensure you're not violating any CC&Rs." value={d.homeBasedZoningCompliance} onChange={v => set('homeBasedZoningCompliance', v)} placeholder="Confirmation of compliance with local zoning laws and HOA CC&Rs..." />
-        <Field label="Lease / Mortgage Constraints" hint="If you're a renter, make sure you have your landlord's permission to operate a business." value={d.homeBasedLeaseConstraints} onChange={v => set('homeBasedLeaseConstraints', v)} placeholder="Landlord permission, lease restrictions, mortgage considerations..." />
-
-        <SubTitle>Supply Chain & Inventory Management</SubTitle>
-        <Field label="Storage Solutions" hint="How will you store raw materials or finished goods? Mention climate control if necessary." value={d.homeBasedStorage} onChange={v => set('homeBasedStorage', v)} placeholder="Storage space, climate control, organization..." />
-        <Field label="Order Fulfillment" hint="Detail the process from receiving an order to shipping it. Which carriers will you use (USPS, UPS, FedEx)? Do you have a scheduled pickup or drop-off arrangement?" value={d.homeBasedOrderFulfillment} onChange={v => set('homeBasedOrderFulfillment', v)} placeholder="Order processing, packaging, carriers, pickup/drop-off arrangements..." />
-        <Field label="Suppliers (Home-Based)" hint="List your primary vendors and backup options to prove your business can survive a supply chain disruption." value={d.homeBasedSuppliers} onChange={v => set('homeBasedSuppliers', v)} placeholder="Primary vendors and backup suppliers..." />
-
-        <SubTitle>Technology & Equipment</SubTitle>
-        <Field label="Hardware" hint="List essential equipment such as high-spec computers, 3D printers, industrial sewing machines, or specialized kitchen appliances." value={d.homeBasedHardware} onChange={v => set('homeBasedHardware', v)} placeholder="Computers, printers, specialized equipment..." />
-        <Field label="Software" hint="Identify your core tools for project management, CRM, and accounting." value={d.homeBasedSoftware} onChange={v => set('homeBasedSoftware', v)} placeholder="Project management, CRM, accounting, design tools..." />
-        <Field label="Connectivity / Internet Redundancy" hint="If your home Wi-Fi goes down, do you have a 5G backup or a local co-working space as a fallback?" value={d.homeBasedConnectivity} onChange={v => set('homeBasedConnectivity', v)} placeholder="Internet backup plan, 5G hotspot, co-working space fallback..." />
-
-        <SubTitle>Workflow & Production</SubTitle>
-        <Field label="Production Stages" hint="Break down the steps involved in creating your product or delivering your service." value={d.homeBasedProductionStages} onChange={v => set('homeBasedProductionStages', v)} placeholder="Step-by-step production stages..." />
-        <Field label="Quality Control (Home-Based)" hint="How do you ensure every deliverable meets your standards before it leaves your home?" value={d.homeBasedQualityControl} onChange={v => set('homeBasedQualityControl', v)} placeholder="Home-based quality checks and standards..." />
-        <Field label="Capacity & Scalability" hint="What is the maximum volume you can produce in your current space? Identify triggers that would require moving to a commercial space or using a 3PL provider." value={d.homeBasedCapacityScalability} onChange={v => set('homeBasedCapacityScalability', v)} placeholder="Maximum production volume, triggers for scaling up, 3PL considerations..." />
-        <Field label="Logistics (Mail & Shipping)" hint="How will you handle incoming professional mail? (e.g., a P.O. Box vs. home address)" value={d.homeBasedLogistics} onChange={v => set('homeBasedLogistics', v)} placeholder="P.O. Box, home address, virtual mailbox..." />
-
-        <SubTitle>Risk Management</SubTitle>
-        <Field label="Business Insurance (Home-Based)" hint="Specify that you have a home-based business rider or a separate commercial general liability policy (standard homeowners or renters policies rarely cover business liabilities)." value={d.homeBasedBusinessInsurance} onChange={v => set('homeBasedBusinessInsurance', v)} placeholder="Business insurance rider, general liability policy..." />
-        <Field label="Data Security" hint="If you handle client data, describe how you will protect sensitive information: encryption, secure backups, and VPN usage." value={d.homeBasedDataSecurity} onChange={v => set('homeBasedDataSecurity', v)} placeholder="Encryption, backups, VPN, data protection measures..." />
-        <Field label="Licenses (Home-Based)" hint="List any required professional or local business licenses." value={d.homeBasedLicenses} onChange={v => set('homeBasedLicenses', v)} placeholder="Required licenses and permits for home-based business..." />
-      </Group>
+      <CollapsibleGroup title="Home-Based Location (if you run from home)" badge={<span className="text-[10px] px-2 py-0.5 rounded-full bg-divider/40 text-foreground-500 mr-2">conditional</span>}>
+          <Field label="Home-Based Business? (Overview)" hint="If your business operates from home, describe the overall arrangement and why it suits your needs." value={d.homeBasedLocation} onChange={v => set('homeBasedLocation', v)} placeholder="Describe your home-based setup and why it works for your business..." />
+  
+          <SubTitle>Physical Location & Zoning</SubTitle>
+          <Field label="Dedicated Space" hint="Describe the specific area of your home used for business (e.g., a 200 sq ft converted garage or a dedicated office)." type="text" value={d.homeBasedDedicatedSpace} onChange={v => set('homeBasedDedicatedSpace', v)} placeholder="e.g. 200 sq ft converted garage / dedicated home office" />
+          <Field label="Zoning Compliance" hint="Indicate that you're in compliance with local zoning laws. Check with your HOA to ensure you're not violating any CC&Rs." value={d.homeBasedZoningCompliance} onChange={v => set('homeBasedZoningCompliance', v)} placeholder="Confirmation of compliance with local zoning laws and HOA CC&Rs..." />
+          <Field label="Lease / Mortgage Constraints" hint="If you're a renter, make sure you have your landlord's permission to operate a business." value={d.homeBasedLeaseConstraints} onChange={v => set('homeBasedLeaseConstraints', v)} placeholder="Landlord permission, lease restrictions, mortgage considerations..." />
+  
+          <SubTitle>Supply Chain & Inventory Management</SubTitle>
+          <Field label="Storage Solutions" hint="How will you store raw materials or finished goods? Mention climate control if necessary." value={d.homeBasedStorage} onChange={v => set('homeBasedStorage', v)} placeholder="Storage space, climate control, organization..." />
+          <Field label="Order Fulfillment" hint="Detail the process from receiving an order to shipping it. Which carriers will you use (USPS, UPS, FedEx)? Do you have a scheduled pickup or drop-off arrangement?" value={d.homeBasedOrderFulfillment} onChange={v => set('homeBasedOrderFulfillment', v)} placeholder="Order processing, packaging, carriers, pickup/drop-off arrangements..." />
+          <Field label="Suppliers (Home-Based)" hint="List your primary vendors and backup options to prove your business can survive a supply chain disruption." value={d.homeBasedSuppliers} onChange={v => set('homeBasedSuppliers', v)} placeholder="Primary vendors and backup suppliers..." />
+  
+          <SubTitle>Technology & Equipment</SubTitle>
+          <Field label="Hardware" hint="List essential equipment such as high-spec computers, 3D printers, industrial sewing machines, or specialized kitchen appliances." value={d.homeBasedHardware} onChange={v => set('homeBasedHardware', v)} placeholder="Computers, printers, specialized equipment..." />
+          <Field label="Software" hint="Identify your core tools for project management, CRM, and accounting." value={d.homeBasedSoftware} onChange={v => set('homeBasedSoftware', v)} placeholder="Project management, CRM, accounting, design tools..." />
+          <Field label="Connectivity / Internet Redundancy" hint="If your home Wi-Fi goes down, do you have a 5G backup or a local co-working space as a fallback?" value={d.homeBasedConnectivity} onChange={v => set('homeBasedConnectivity', v)} placeholder="Internet backup plan, 5G hotspot, co-working space fallback..." />
+  
+          <SubTitle>Workflow & Production</SubTitle>
+          <Field label="Production Stages" hint="Break down the steps involved in creating your product or delivering your service." value={d.homeBasedProductionStages} onChange={v => set('homeBasedProductionStages', v)} placeholder="Step-by-step production stages..." />
+          <Field label="Quality Control (Home-Based)" hint="How do you ensure every deliverable meets your standards before it leaves your home?" value={d.homeBasedQualityControl} onChange={v => set('homeBasedQualityControl', v)} placeholder="Home-based quality checks and standards..." />
+          <Field label="Capacity & Scalability" hint="What is the maximum volume you can produce in your current space? Identify triggers that would require moving to a commercial space or using a 3PL provider." value={d.homeBasedCapacityScalability} onChange={v => set('homeBasedCapacityScalability', v)} placeholder="Maximum production volume, triggers for scaling up, 3PL considerations..." />
+          <Field label="Logistics (Mail & Shipping)" hint="How will you handle incoming professional mail? (e.g., a P.O. Box vs. home address)" value={d.homeBasedLogistics} onChange={v => set('homeBasedLogistics', v)} placeholder="P.O. Box, home address, virtual mailbox..." />
+  
+          <SubTitle>Risk Management</SubTitle>
+          <Field label="Business Insurance (Home-Based)" hint="Specify that you have a home-based business rider or a separate commercial general liability policy (standard homeowners or renters policies rarely cover business liabilities)." value={d.homeBasedBusinessInsurance} onChange={v => set('homeBasedBusinessInsurance', v)} placeholder="Business insurance rider, general liability policy..." />
+          <Field label="Data Security" hint="If you handle client data, describe how you will protect sensitive information: encryption, secure backups, and VPN usage." value={d.homeBasedDataSecurity} onChange={v => set('homeBasedDataSecurity', v)} placeholder="Encryption, backups, VPN, data protection measures..." />
+          <Field label="Licenses (Home-Based)" hint="List any required professional or local business licenses." value={d.homeBasedLicenses} onChange={v => set('homeBasedLicenses', v)} placeholder="Required licenses and permits for home-based business..." />
+      </CollapsibleGroup>
 
       {/* ==================== 5. LEGAL ENVIRONMENT ==================== */}
       <Group title="Legal Environment" number="5">
@@ -294,18 +294,18 @@ export default function SectionV({ data, onChange }) {
       </Group>
 
       {/* ==================== 10. CREDIT POLICIES ==================== */}
-      <Group title="Credit Policies" number="10">
-        <Field label="Industry Practice & Customer Expectations" hint="Is offering credit standard practice in your industry? Do customers expect it?" value={d.creditIndustryStandard} onChange={v => set('creditIndustryStandard', v)} placeholder="Industry norms around extending credit..." />
-        <Row>
-          <Field label="Credit Amount & Eligibility Criteria" hint="How much credit will you extend, and what criteria will you use to determine eligibility?" value={d.creditAmountCriteria} onChange={v => set('creditAmountCriteria', v)} placeholder="Credit limits and eligibility criteria..." />
-          <Field label="Creditworthiness Assessment" hint="How will you assess a new customer's creditworthiness — credit checks, trade references, or payment history?" value={d.creditAssessment} onChange={v => set('creditAssessment', v)} placeholder="Methods for assessing creditworthiness..." />
-        </Row>
-        <Row>
-          <Field label="Credit Terms" hint="What terms will you offer: net 30, net 60, early payment discounts?" value={d.creditTerms} onChange={v => set('creditTerms', v)} placeholder="e.g. Net 30, early payment discount of 2% if paid within 10 days" />
-          <Field label="Cost of Offering Credit" hint="What does it cost you to offer credit, and have you built those costs into your pricing?" value={d.creditCosts} onChange={v => set('creditCosts', v)} placeholder="Costs of extending credit and how they're factored into pricing..." />
-        </Row>
-        <Field label="Collections & Non-Payment Handling" hint="How will you handle slow or non-paying customers?" value={d.creditCollections} onChange={v => set('creditCollections', v)} placeholder="Collections process, late fees, escalation procedures..." />
-      </Group>
+      <CollapsibleGroup title="Credit Policies (if you sell on credit terms)" badge={<span className="text-[10px] px-2 py-0.5 rounded-full bg-divider/40 text-foreground-500 mr-2">conditional</span>}>
+          <Field label="Industry Practice & Customer Expectations" hint="Is offering credit standard practice in your industry? Do customers expect it?" value={d.creditIndustryStandard} onChange={v => set('creditIndustryStandard', v)} placeholder="Industry norms around extending credit..." />
+          <Row>
+            <Field label="Credit Amount & Eligibility Criteria" hint="How much credit will you extend, and what criteria will you use to determine eligibility?" value={d.creditAmountCriteria} onChange={v => set('creditAmountCriteria', v)} placeholder="Credit limits and eligibility criteria..." />
+            <Field label="Creditworthiness Assessment" hint="How will you assess a new customer's creditworthiness — credit checks, trade references, or payment history?" value={d.creditAssessment} onChange={v => set('creditAssessment', v)} placeholder="Methods for assessing creditworthiness..." />
+          </Row>
+          <Row>
+            <Field label="Credit Terms" hint="What terms will you offer: net 30, net 60, early payment discounts?" value={d.creditTerms} onChange={v => set('creditTerms', v)} placeholder="e.g. Net 30, early payment discount of 2% if paid within 10 days" />
+            <Field label="Cost of Offering Credit" hint="What does it cost you to offer credit, and have you built those costs into your pricing?" value={d.creditCosts} onChange={v => set('creditCosts', v)} placeholder="Costs of extending credit and how they're factored into pricing..." />
+          </Row>
+          <Field label="Collections & Non-Payment Handling" hint="How will you handle slow or non-paying customers?" value={d.creditCollections} onChange={v => set('creditCollections', v)} placeholder="Collections process, late fees, escalation procedures..." />
+      </CollapsibleGroup>
     </SectionPage>
   )
 }
