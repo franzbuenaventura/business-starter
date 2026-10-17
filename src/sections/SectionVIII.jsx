@@ -435,7 +435,7 @@ export default function SectionVIII({ data, onChange }) {
           <Field label="Annual Debt Service (₱, P+I)" type="text" value={d.returnDebtService} onChange={v => hc('returnDebtService', v)} />
           <div className="flex flex-col justify-end">
             <span className={itemLabel}>DSCR (auto)</span>
-            <div className={`${numberCls} font-semibold`}>{returnNoi > 0 && returnDebtService > 0 ? (returnNoi / returnDebtService).toFixed(2) + '×' : '—'}</div>
+            <div className={`${numberCls} font-semibold`}>{returnDebtService > 0 && returnNoi !== 0 ? (returnNoi / returnDebtService).toFixed(2) + '×' : '—'}</div>
           </div>
         </Row>
         <Row cols={3}>
@@ -443,7 +443,7 @@ export default function SectionVIII({ data, onChange }) {
           <Field label="Steady Annual Cash Return (₱)" type="text" value={d.returnAnnualCash} onChange={v => hc('returnAnnualCash', v)} />
           <div className="flex flex-col justify-end">
             <span className={itemLabel}>Cash-on-Cash (auto)</span>
-            <div className={`${numberCls} font-semibold`}>{returnEquity > 0 && returnAnnualCash > 0 ? ((returnAnnualCash / returnEquity) * 100).toFixed(1) + '%' : '—'}</div>
+            <div className={`${numberCls} font-semibold`}>{returnEquity > 0 && returnAnnualCash !== 0 ? (((returnAnnualCash / returnEquity) * 100).toFixed(1)) + '%' : '—'}</div>
           </div>
         </Row>
         <Field label="Returns Notes (IRR/NPV method, distribution waterfall, exit multiple)" value={d.returnNotes} onChange={v => hc('returnNotes', v)} tall />
