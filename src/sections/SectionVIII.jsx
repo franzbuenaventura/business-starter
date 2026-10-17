@@ -147,6 +147,24 @@ export default function SectionVIII({ data, onChange }) {
   const returnEquity = cleanNum(data?.returnEquity)
   const returnAnnualCash = cleanNum(data?.returnAnnualCash)
 
+  // ── IRR/NPV helpers (2026-10-16 additions) ──
+  // Project (unlevered) IRR: t0 = capital requested (fallback: equity invested); Y1 = 12-mo net; Y2+ = Y3 net (conservative flat to Y10).
+  const capT0 = Math.max(cleanNum(data?.totalCapitalRequested), cleanNum(data?.returnEquity))
+  const y1Unlevered = rev - sa(cog || []) - sa(opex || [])
+  const y3Net = cleanNum(data?.threeYearNetProfitY3)
+  const irrBisect = (flows) => {
+    const npv = r => flows.reduce((a, c, t) => a + c / Math.pow(1 + r, t), 0)
+    if (!flows || flows.length < 2) return null
+    let lo = -0.95, hi = 10
+    if (npv(lo) * npv(hi) > 0) return null
+    for (let i = 0; i < 80; i++) { const mid = (lo + hi) / 2; if (npv(mid) > 0) lo = mid; else hi = mid }
+    return (lo + hi) / 2
+  }
+  const irrFlows = capT0 > 0 && y3Net !== 0 ? [ -capT0, ...Array.from({ length: 10 }, (_, t) => (t === 0 ? y1Unlevered : y3Net)) ] : null
+  const irrPct = irrFlows ? irrBisect(irrFlows) : null
+  const npv10 = irrFlows ? irrFlows.reduce((a, c, t) => a + c / Math.pow(1.10, t), 0) : null
+  const paybackYrs = capT0 > 0 && y3Net > 0 ? Math.round((capT0 / y3Net) * 100) / 100 : null
+
   const mkH = (fld, starter) => ({
     add: () => { const l = data?.[fld] ? [...data[fld]] : [{ ...starter }]; hc(fld, [...l, { ...starter }]); },
     update: (i, u) => { const l = data?.[fld] || []; hc(fld, l.map((r, j) => j === i ? u : r)); },
@@ -460,7 +478,16 @@ export default function SectionVIII({ data, onChange }) {
             <div className={`${numberCls} font-semibold`}>{returnEquity > 0 && returnAnnualCash !== 0 ? (((returnAnnualCash / returnEquity) * 100).toFixed(1)) + '%' : '—'}</div>
           </div>
         </Row>
-        <Field label="Returns Notes (IRR/NPV method, distribution waterfall, exit multiple)" value={d.returnNotes} onChange={v => hc('returnNotes', v)} tall />
+        <Field label="Returns Notes (IRR/NPV method, distribution waterfall, exit multiple)" value={d.returnNotes} onChange={v => hc('returnNotes', v)} tall />        {/* Auto IRR/NPV (2026-10-16): conservative flat-Y3-to-Y10 model; labeled MODELED */}
+        {(irrFlows ? (
+          <div className="mt-2 rounded-xl border border-divider bg-content2 p-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+            <div><span className={itemLabel}>Capital at t0 (₱)</span><div className="text-sm font-semibold tabular-nums">{PHP(capT0)}</div></div>
+            <div><span className={itemLabel}>Project IRR (10-yr, modeled)</span><div className={`text-sm font-semibold tabular-nums ${irrPct != null ? (irrPct > 0.12 ? 'text-success' : irrPct > 0 ? '' : 'text-danger') : ''}`}>{irrPct == null ? 'n/a (no sign change)' : (irrPct * 100).toFixed(1) + '%'}</div></div>
+            <div><span className={itemLabel}>NPV @ 10% (₱)</span><div className={`text-sm font-semibold tabular-nums ${npv10 >= 0 ? 'text-success' : 'text-danger'}`}>{npv10 == null ? '—' : (npv10 < 0 ? '−' : '') + PHP(Math.abs(npv10))}</div></div>
+            <div><span className={itemLabel}>Payback @ steady net</span><div className="text-sm font-semibold tabular-nums">{paybackYrs == null ? '—' : paybackYrs + ' yrs'}</div></div>
+          </div>
+        ) : null)}
+
       </Group>
     </SectionPage>
   )

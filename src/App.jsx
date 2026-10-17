@@ -164,6 +164,8 @@ export default function App() {
   const [listView, setListView] = useState('plans') // 'plans' | 'portfolio'
   const [showCreate, setShowCreate] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
+  const [renameTarget, setRenameTarget] = useState(null)
+  const [renameValue, setRenameValue] = useState('')
   const { isOnline, pendingCount, syncing, queueOperation, syncQueue } = useOfflineSync()
   // Search & filter state
   const [searchQuery, setSearchQuery] = useState('')
@@ -453,6 +455,33 @@ export default function App() {
               </ModalFooter>
             </>
           )}
+        </ModalContent>
+      </Modal>
+
+      {/* Rename modal (2026-10-16) */}
+      <Modal isOpen={!!renameTarget} onClose={() => setRenameTarget(null)} size="md">
+        <ModalContent>
+          <ModalHeader>Rename plan</ModalHeader>
+          <ModalBody>
+            <Input
+              autoFocus
+              label="Plan name"
+              value={renameValue}
+              onValueChange={setRenameValue}
+              maxLength={160}
+            />
+          </ModalBody>
+          <ModalFooter>
+            <Button variant="light" onPress={() => setRenameTarget(null)}>Cancel</Button>
+            <Button color="primary" onPress={async () => {
+              const name = renameValue.trim()
+              if (!renameTarget || !name) return
+              try {
+                const r = await apiFetch(`${API}/${renameTarget.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) })
+                if (r.ok) { setRenameTarget(null); load() }
+              } catch (err) { console.error('Rename failed:', err) }
+            }}>Rename</Button>
+          </ModalFooter>
         </ModalContent>
       </Modal>
 
@@ -996,6 +1025,7 @@ function PlanView({ id, onBack }) {
           businessId={plan.id}
           locked={!!activeScenario}
           lockBanner={activeScenario ? `Scenario mode — editing “${activeScenario.name}”. Only VII/VIII change; Company & Organization is readonly.` : null}
+          hideFooter
           onSave={(content) => {
             // merged Company & Organization tab — never financial; scenario mode locks it
             if (!activeScenario) scheduleSave('II', content)
@@ -1144,7 +1174,7 @@ function PrintSnapshot({ viii, vii, planName, activeScenario }) {
   )
 }
 
-function SectionRouter({ sectionKey, sectionLabel, sectionData, businessId, onSave, saveStatus, locked, lockBanner }) {
+function SectionRouter({ sectionKey, sectionLabel, sectionData, businessId, onSave, saveStatus, locked, lockBanner, hideFooter }) {
   const [localData, setLocalData] = useState(null)
   const dirtyRef = useRef(false)
   const localDataRef = useRef(null)
@@ -1177,6 +1207,22 @@ function SectionRouter({ sectionKey, sectionLabel, sectionData, businessId, onSa
     onSaveRef.current(merged)
   }, [localData])
 
+  const [fieldStats, setFieldStats] = useState(null)
+  useEffect(() => {
+    // H3: per-section empty-field nudge (DOM-based — any section shape)
+    const id = requestAnimationFrame(() => {
+      const els = document.querySelectorAll('main input, main textarea, main .tiptap')
+      let total = 0, empty = 0
+      els.forEach(el => {
+        if (el.disabled) return
+        total++
+        const filled = el.classList.contains('tiptap') ? (el.innerText || '').trim().length > 0 : String(el.value || '').trim().length > 0
+        if (!filled) empty++
+      })
+      setFieldStats(total > 0 ? { total, empty } : null)
+    })
+    return () => cancelAnimationFrame(id)
+  }, [localData, sectionKey, locked])
   const SectionComponent = SECTION_COMPONENTS[sectionKey]
 
   return (
@@ -1208,8 +1254,13 @@ function SectionRouter({ sectionKey, sectionLabel, sectionData, businessId, onSa
         </div>
       )}
 
-      <div className="mt-8 text-center text-xs text-foreground-400">
-        {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved ✓' : 'All changes saved'}
-      </div>
+      {!hideFooter && (
+        <div className="mt-8 text-center text-xs text-foreground-400">
+          {saveStatus === 'saving' ? 'Saving…' : saveStatus === 'saved' ? 'Saved ✓' : 'All changes saved'}
+          {fieldStats && fieldStats.empty > 0 && !locked ? (
+            <span className="ml-3 text-warning-600">{fieldStats.empty} field{fieldStats.empty === 1 ? '' : 's'} still empty</span>
+          ) : null}
+        </div>
+      )}
     </div>
   )}

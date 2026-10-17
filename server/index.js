@@ -377,6 +377,51 @@ function createApp(db, persistFn) {
     res.json(business || { error: 'Not found' })
   })
 
+  // 2026-10-16 additions: rename + duplicate a plan
+  app.patch('/api/businesses/:id', (req, res) => {
+    const id = Number(req.params.id)
+    if (!isIntId(id)) return res.status(400).json({ error: 'Invalid id' })
+    const row = queryOne(db, 'SELECT id FROM businesses WHERE id = ?', [id])
+    if (!row) return res.status(404).json({ error: 'Not found' })
+    const { name, industry } = req.body || {}
+    if (name != null) {
+      const clean = String(name).trim()
+      if (!clean) return res.status(400).json({ error: 'Name cannot be empty' })
+      if (clean.length > 160) return res.status(400).json({ error: 'Name too long' })
+      db.run('UPDATE businesses SET name = ? WHERE id = ?', [clean, id])
+    }
+    if (industry != null) db.run('UPDATE businesses SET industry = ? WHERE id = ?', [String(industry).trim() || null, id])
+    if (persistFn) persistFn()
+    const business = queryOne(db, 'SELECT * FROM businesses WHERE id = ?', [id])
+    res.json(business)
+  })
+
+  app.post('/api/businesses/:id/duplicate', (req, res) => {
+    const id = Number(req.params.id)
+    if (!isIntId(id)) return res.status(400).json({ error: 'Invalid id' })
+    const src = queryOne(db, 'SELECT * FROM businesses WHERE id = ?', [id])
+    if (!src) return res.status(404).json({ error: 'Not found' })
+    const { name } = req.body || {}
+    const newName = (name != null && String(name).trim()) || `${src.name} (copy)`
+    if (!newName.trim()) return res.status(400).json({ error: 'Name cannot be empty' })
+    db.run('INSERT INTO businesses (name, industry) VALUES (?, ?)', [newName.trim(), src.industry])
+    const newId = db.exec('SELECT last_insert_rowid() as id')[0].values[0][0]
+    const sections = queryAll(db, 'SELECT section_key, content FROM plan_sections WHERE plan_id = ?', [id])
+    for (const s of sections) {
+      db.run('INSERT INTO plan_sections (plan_id, section_key, content, updated_at) VALUES (?, ?, ?, datetime(\'now\'))', [newId, s.section_key, s.content])
+    }
+    const scenarios = queryAll(db, 'SELECT name, notes, content, is_default FROM plan_scenarios WHERE plan_id = ?', [id])
+    for (const si of scenarios) {
+      db.run('INSERT INTO plan_scenarios (plan_id, name, notes, content, is_default, updated_at) VALUES (?, ?, ?, ?, ?, datetime(\'now\'))', [newId, si.name, si.notes, si.content, si.is_default])
+    }
+    if (persistFn) persistFn()
+    const business = queryOne(db, 'SELECT * FROM businesses WHERE id = ?', [newId])
+    business.sections = {}
+    const srows = queryAll(db, 'SELECT section_key, content FROM plan_sections WHERE plan_id = ?', [newId])
+    srows.forEach(s => { business.sections[s.section_key] = safeParseJson(s.content) })
+    res.status(201).json(business)
+  })
+
   app.get('/api/sections', (req, res) => { res.json(SECTIONS.map(key => ({ key, label: SECTION_LABELS[key] || key }))) })
 
   // Export all businesses + their sections as JSON
