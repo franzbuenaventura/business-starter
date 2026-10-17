@@ -136,10 +136,10 @@ export default function SectionVIII({ data, onChange }) {
   const uoc = data?.useOfCapitalItems || [{ description: '', amount: '' }]
 
   // ── 2026-10-16 additions: sources&uses, assumptions schedule, risk matrix, returns ──
-  const sufSrcH = mkH('sourcesOfFunds', { source: '', amount: '' })
-  const sufUseH = mkH('usesOfFunds', { use: '', amount: '' })
-  const asmH = mkH('assumptionsSchedule', { driver: '', value: '', source: '' })
-  const rskH = mkH('riskMatrix', { risk: '', likelihood: '', impact: '', mitigation: '' })
+  const sufSrc = data?.sourcesOfFunds || [{ source: '', amount: '' }]
+  const sufUse = data?.usesOfFunds || [{ use: '', amount: '' }]
+  const asmL = data?.assumptionsSchedule || [{ driver: '', value: '', source: '' }]
+  const rskL = data?.riskMatrix || [{ risk: '', likelihood: '', impact: '', mitigation: '' }]
   const returnNoi = parseFloat(data?.returnNoi) || 0
   const returnDebtService = parseFloat(data?.returnDebtService) || 0
   const returnEquity = parseFloat(data?.returnEquity) || 0
@@ -150,6 +150,10 @@ export default function SectionVIII({ data, onChange }) {
     update: (i, u) => { const l = data?.[fld] || []; hc(fld, l.map((r, j) => j === i ? u : r)); },
     remove: (i) => { const l = data?.[fld] || []; const n = l.filter((_, j) => j !== i); hc(fld, n.length ? n : [{ ...starter }]); },
   })
+    const sufSrcH = mkH('sourcesOfFunds', { source: '', amount: '' })
+  const sufUseH = mkH('usesOfFunds', { use: '', amount: '' })
+  const asmH = mkH('assumptionsSchedule', { driver: '', value: '', source: '' })
+  const rskH = mkH('riskMatrix', { risk: '', likelihood: '', impact: '', mitigation: '' })
   const rh = mkH('revenueItems', { name: '', amount: '' })
   const ch = mkH('cogsItems', { name: '', amount: '' })
   const oh = mkH('operatingExpenses', { name: '', amount: '' })
@@ -366,7 +370,7 @@ export default function SectionVIII({ data, onChange }) {
         title="8. Sources & Uses (Capitalization Reconciliation)"
         hint="One reconciliation table: every peso coming IN (equity, loans, grants) against every peso going OUT (the full capital program). Totals must match — that's the check lenders do first.">
         <SubTitle>Sources of Funds (where the money comes from)</SubTitle>
-        {sufSrcH.map((r, i) => (
+        {sufSrc.map((r, i) => (
           <div key={i} className="grid grid-cols-1 sm:grid-cols-[1fr_180px_auto] gap-3 items-end mb-3 p-3 rounded-xl border border-divider bg-content2">
             <Field label={i === 0 ? 'Source (founder cash, bank loan @ terms, investor, grant)' : 'Source'} type="text" value={r.source} onChange={v => sufSrcH.update(i, { ...r, source: v })} />
             <input className={numberCls} type="number" min="0" step="0.01" value={r.amount ?? ''} onChange={e => sufSrcH.update(i, { ...r, amount: e.target.value })} placeholder="0.00" />
@@ -377,7 +381,7 @@ export default function SectionVIII({ data, onChange }) {
         <div className={totalCls}>Total Sources: {PHP(sa(sufSrc))}</div>
 
         <SubTitle>Uses of Funds (where the money goes)</SubTitle>
-        {sufUseH.map((r, i) => (
+        {sufUse.map((r, i) => (
           <div key={i} className="grid grid-cols-1 sm:grid-cols-[1fr_180px_auto] gap-3 items-end mb-3 p-3 rounded-xl border border-divider bg-content2">
             <Field label={i === 0 ? 'Use (capex line, working capital, contingency)' : 'Use'} type="text" value={r.use} onChange={v => sufUseH.update(i, { ...r, use: v })} />
             <input className={numberCls} type="number" min="0" step="0.01" value={r.amount ?? ''} onChange={e => sufUseH.update(i, { ...r, amount: e.target.value })} placeholder="0.00" />
@@ -395,7 +399,7 @@ export default function SectionVIII({ data, onChange }) {
       <Group
         title="9. Key Assumptions Schedule"
         hint="The drivers behind every number above — the first table a reviewer cross-checks. One row per driver: name, the assumption, and its verified source.">
-        {asmH.map((r, i) => (
+        {asmL.map((r, i) => (
           <div key={i} className="grid grid-cols-1 sm:grid-cols-[220px_1fr_1fr_auto] gap-3 items-end mb-3 p-3 rounded-xl border border-divider bg-content2">
             <Field label={i === 0 ? 'Driver (occupancy, mortality rate, bay-hours…)' : 'Driver'} type="text" value={r.driver} onChange={v => asmH.update(i, { ...r, driver: v })} />
             <Field label="Assumption" type="text" value={r.value} onChange={v => asmH.update(i, { ...r, value: v })} />
@@ -410,7 +414,7 @@ export default function SectionVIII({ data, onChange }) {
       <Group
         title="10. Risk & Mitigation Matrix"
         hint="Downside planning: what could go wrong, how likely, how hard it hits, and the specific mitigation. PH commercial lenders treat this as a required underwriting exhibit.">
-        {rskH.map((r, i) => (
+        {rskL.map((r, i) => (
           <div key={i} className="grid grid-cols-1 sm:grid-cols-[1fr_110px_110px_1fr_auto] gap-3 items-end mb-3 p-3 rounded-xl border border-divider bg-content2">
             <Field label={i === 0 ? 'Risk (construction delay, rate reprice, input inflation…)' : 'Risk'} type="text" value={r.risk} onChange={v => rskH.update(i, { ...r, risk: v })} />
             <Field label="Likelihood (L/M/H)" type="text" value={r.likelihood} onChange={v => rskH.update(i, { ...r, likelihood: v })} />
