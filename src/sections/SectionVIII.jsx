@@ -135,6 +135,16 @@ export default function SectionVIII({ data, onChange }) {
   const vc = data?.variableCostItems || [{ name: '', amount: '' }]
   const uoc = data?.useOfCapitalItems || [{ description: '', amount: '' }]
 
+  // ── 2026-10-16 additions: sources&uses, assumptions schedule, risk matrix, returns ──
+  const sufSrcH = mkH('sourcesOfFunds', { source: '', amount: '' })
+  const sufUseH = mkH('usesOfFunds', { use: '', amount: '' })
+  const asmH = mkH('assumptionsSchedule', { driver: '', value: '', source: '' })
+  const rskH = mkH('riskMatrix', { risk: '', likelihood: '', impact: '', mitigation: '' })
+  const returnNoi = parseFloat(data?.returnNoi) || 0
+  const returnDebtService = parseFloat(data?.returnDebtService) || 0
+  const returnEquity = parseFloat(data?.returnEquity) || 0
+  const returnAnnualCash = parseFloat(data?.returnAnnualCash) || 0
+
   const mkH = (fld, starter) => ({
     add: () => { const l = data?.[fld] || [{ ...starter }]; hc(fld, [...l, { ...starter }]); },
     update: (i, u) => { const l = data?.[fld] || []; hc(fld, l.map((r, j) => j === i ? u : r)); },
@@ -349,6 +359,90 @@ export default function SectionVIII({ data, onChange }) {
 
         <Field label="Expected Outcomes" hint="What specific results do you expect — increased revenue, expanded capacity, new product lines?" value={d.capitalExpectedOutcomes} onChange={v => hc('capitalExpectedOutcomes', v)} tall />
         <Field label="Additional Financial Notes" hint="Any other context that helps readers understand your financial plan — contingent liabilities, seasonal considerations, insurance, tax strategies, etc." value={d.financialNotes} onChange={v => hc('financialNotes', v)} tall />
+      </Group>
+    
+      {/* ── 8. Sources & Uses (2026-10-16 additions) ── */}
+      <Group
+        title="8. Sources & Uses (Capitalization Reconciliation)"
+        hint="One reconciliation table: every peso coming IN (equity, loans, grants) against every peso going OUT (the full capital program). Totals must match — that's the check lenders do first.">
+        <SubTitle>Sources of Funds (where the money comes from)</SubTitle>
+        {sufSrcH.map((r, i) => (
+          <div key={i} className="grid grid-cols-1 sm:grid-cols-[1fr_180px_auto] gap-3 items-end mb-3 p-3 rounded-xl border border-divider bg-content2">
+            <Field label={i === 0 ? 'Source (founder cash, bank loan @ terms, investor, grant)' : 'Source'} type="text" value={r.source} onChange={v => sufSrcH.update(i, { ...r, source: v })} />
+            <input className={numberCls} type="number" min="0" step="0.01" value={r.amount ?? ''} onChange={e => sufSrcH.update(i, { ...r, amount: e.target.value })} placeholder="0.00" />
+            {i > 0 ? <RemoveBtn onRemove={() => sufSrcH.remove(i)} label="Remove source" /> : <div />}
+          </div>
+        ))}
+        <AddBtn onClick={sufSrcH.add}>+ Add Source</AddBtn>
+        <div className={totalCls}>Total Sources: {PHP(sa(sufSrc))}</div>
+
+        <SubTitle>Uses of Funds (where the money goes)</SubTitle>
+        {sufUseH.map((r, i) => (
+          <div key={i} className="grid grid-cols-1 sm:grid-cols-[1fr_180px_auto] gap-3 items-end mb-3 p-3 rounded-xl border border-divider bg-content2">
+            <Field label={i === 0 ? 'Use (capex line, working capital, contingency)' : 'Use'} type="text" value={r.use} onChange={v => sufUseH.update(i, { ...r, use: v })} />
+            <input className={numberCls} type="number" min="0" step="0.01" value={r.amount ?? ''} onChange={e => sufUseH.update(i, { ...r, amount: e.target.value })} placeholder="0.00" />
+            {i > 0 ? <RemoveBtn onRemove={() => sufUseH.remove(i)} label="Remove use" /> : <div />}
+          </div>
+        ))}
+        <AddBtn onClick={sufUseH.add}>+ Add Use</AddBtn>
+        <div className={totalCls}>Total Uses: {PHP(sa(sufUse))}</div>
+        <div className={`text-sm font-semibold text-right px-3 py-2 rounded-xl border ${Math.abs(sa(sufSrc) - sa(sufUse)) <= 1 && sa(sufSrc) > 0 ? 'text-success border-success-300' : 'text-warning-600 border-warning-300'}`}>
+          {Math.abs(sa(sufSrc) - sa(sufUse)) <= 1 && sa(sufSrc) > 0 ? '✓ Balanced — sources fully fund the uses' : `⚠ Unbalanced by ${PHP(Math.abs(sa(sufSrc) - sa(sufUse)))}`}
+        </div>
+      </Group>
+
+      {/* ── 9. Key Assumptions Schedule ── */}
+      <Group
+        title="9. Key Assumptions Schedule"
+        hint="The drivers behind every number above — the first table a reviewer cross-checks. One row per driver: name, the assumption, and its verified source.">
+        {asmH.map((r, i) => (
+          <div key={i} className="grid grid-cols-1 sm:grid-cols-[220px_1fr_1fr_auto] gap-3 items-end mb-3 p-3 rounded-xl border border-divider bg-content2">
+            <Field label={i === 0 ? 'Driver (occupancy, mortality rate, bay-hours…)' : 'Driver'} type="text" value={r.driver} onChange={v => asmH.update(i, { ...r, driver: v })} />
+            <Field label="Assumption" type="text" value={r.value} onChange={v => asmH.update(i, { ...r, value: v })} />
+            <Field label="Source" type="text" value={r.source} onChange={v => asmH.update(i, { ...r, source: v })} />
+            {i > 0 ? <RemoveBtn onRemove={() => asmH.remove(i)} label="Remove" /> : <div />}
+          </div>
+        ))}
+        <AddBtn onClick={asmH.add}>+ Add Assumption</AddBtn>
+      </Group>
+
+      {/* ── 10. Risk & Mitigation Matrix ── */}
+      <Group
+        title="10. Risk & Mitigation Matrix"
+        hint="Downside planning: what could go wrong, how likely, how hard it hits, and the specific mitigation. PH commercial lenders treat this as a required underwriting exhibit.">
+        {rskH.map((r, i) => (
+          <div key={i} className="grid grid-cols-1 sm:grid-cols-[1fr_110px_110px_1fr_auto] gap-3 items-end mb-3 p-3 rounded-xl border border-divider bg-content2">
+            <Field label={i === 0 ? 'Risk (construction delay, rate reprice, input inflation…)' : 'Risk'} type="text" value={r.risk} onChange={v => rskH.update(i, { ...r, risk: v })} />
+            <Field label="Likelihood (L/M/H)" type="text" value={r.likelihood} onChange={v => rskH.update(i, { ...r, likelihood: v })} />
+            <Field label="Impact (L/M/H)" type="text" value={r.impact} onChange={v => rskH.update(i, { ...r, impact: v })} />
+            <Field label="Mitigation" type="text" value={r.mitigation} onChange={v => rskH.update(i, { ...r, mitigation: v })} />
+            {i > 0 ? <RemoveBtn onRemove={() => rskH.remove(i)} label="Remove" /> : <div />}
+          </div>
+        ))}
+        <AddBtn onClick={rskH.add}>+ Add Risk</AddBtn>
+      </Group>
+
+      {/* ── 11. DSCR & Investor Returns (bank-grade, optional) ── */}
+      <Group
+        title="11. DSCR & Investor Returns (bank-grade, optional)"
+        hint="Debt-service coverage and equity-return metrics. Fill when the plan carries financing or an equity raise; leave blank for all-cash plans.">
+        <Row cols={3}>
+          <Field label="Net Operating Income (₱, steady)" type="text" value={d.returnNoi} onChange={v => hc('returnNoi', v)} />
+          <Field label="Annual Debt Service (₱, P+I)" type="text" value={d.returnDebtService} onChange={v => hc('returnDebtService', v)} />
+          <div className="flex flex-col justify-end">
+            <span className={itemLabel}>DSCR (auto)</span>
+            <div className={`${numberCls} font-semibold`}>{returnNoi > 0 && returnDebtService > 0 ? (returnNoi / returnDebtService).toFixed(2) + '×' : '—'}</div>
+          </div>
+        </Row>
+        <Row cols={3}>
+          <Field label="Equity Invested (₱)" type="text" value={d.returnEquity} onChange={v => hc('returnEquity', v)} />
+          <Field label="Steady Annual Cash Return (₱)" type="text" value={d.returnAnnualCash} onChange={v => hc('returnAnnualCash', v)} />
+          <div className="flex flex-col justify-end">
+            <span className={itemLabel}>Cash-on-Cash (auto)</span>
+            <div className={`${numberCls} font-semibold`}>{returnEquity > 0 && returnAnnualCash > 0 ? ((returnAnnualCash / returnEquity) * 100).toFixed(1) + '%' : '—'}</div>
+          </div>
+        </Row>
+        <Field label="Returns Notes (IRR/NPV method, distribution waterfall, exit multiple)" value={d.returnNotes} onChange={v => hc('returnNotes', v)} tall />
       </Group>
     </SectionPage>
   )

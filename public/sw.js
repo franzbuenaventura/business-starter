@@ -3,7 +3,7 @@
    Caches static assets and API GET responses for offline use
    ============================================================ */
 
-const CACHE_VERSION = 'bs-v1'
+const CACHE_VERSION = 'bs-v2' // auto: index.html is network-first, /assets/* hash-immutable cache-first
 const STATIC_CACHE = `static-${CACHE_VERSION}`
 const API_CACHE = `api-${CACHE_VERSION}`
 
@@ -77,6 +77,24 @@ self.addEventListener('fetch', (event) => {
             })
           })
         })
+    )
+    return
+  }
+
+  // index.html / navigations: NETWORK-FIRST (fall back to cache only when offline) —
+  // 2026-10-16 law: a cache-first index pins the OLD bundle forever after each deploy
+  // (the stale-UI bug class this kills). Hashed /assets/* stay cache-first (immutable).
+  if (request.mode === 'navigate' || url.pathname === '/' || url.pathname === '/index.html') {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response.ok) {
+            const clone = response.clone()
+            caches.open(STATIC_CACHE).then((cache) => cache.put(request, clone))
+          }
+          return response
+        })
+        .catch(() => caches.match(request).then(c => c || new Response('Offline', { status: 503 })))
     )
     return
   }
