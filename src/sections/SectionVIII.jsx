@@ -141,7 +141,8 @@ export default function SectionVIII({ data, onChange }) {
   const asmL = data?.assumptionsSchedule || [{ driver: '', value: '', source: '' }]
   const rskL = data?.riskMatrix || [{ risk: '', likelihood: '', impact: '', mitigation: '' }]
   // AGY: comma-formatted input ('1,200,000') → parseFloat reads 1 — strip non-numerics
-  const cleanNum = v => { const n = parseFloat(String(v ?? '').replace(/[^\d.-]/g, '')); return isNaN(n) ? 0 : n }
+  // NOTE: also treat unicode minus (−, U+2212, used by our own accounting-style writes) as '-'
+  const cleanNum = v => { const n = parseFloat(String(v ?? '').replace(/[−]/g, '-').replace(/[^\d.-]/g, '')); return isNaN(n) ? 0 : n }
   const returnNoi = cleanNum(data?.returnNoi)
   const returnDebtService = cleanNum(data?.returnDebtService)
   const returnEquity = cleanNum(data?.returnEquity)
@@ -161,7 +162,9 @@ export default function SectionVIII({ data, onChange }) {
     return (lo + hi) / 2
   }
   const irrFlows = capT0 > 0 && y3Net !== 0 ? [ -capT0, ...Array.from({ length: 10 }, (_, t) => (t === 0 ? y1Unlevered : y3Net)) ] : null
-  const irrPct = irrFlows ? irrBisect(irrFlows) : null
+  let irrPct = irrFlows ? irrBisect(irrFlows) : null
+  // sanity floor: IRR below −50% = capital never recovered in the horizon — display n/a rather than a meaningless −95%
+  if (irrPct != null && irrPct < -0.5) irrPct = null
   const npv10 = irrFlows ? irrFlows.reduce((a, c, t) => a + c / Math.pow(1.10, t), 0) : null
   const paybackYrs = capT0 > 0 && y3Net > 0 ? Math.round((capT0 / y3Net) * 100) / 100 : null
 
