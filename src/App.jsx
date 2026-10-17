@@ -405,6 +405,28 @@ export default function App() {
                           <Chip size="sm" variant="flat" {...STATUS_CHIP[status]}>{STATUS_LABELS[status]}</Chip>
                           <Button
                             isIconOnly size="sm" variant="light" radius="full"
+                            className="no-print text-foreground-500 hover:text-primary"
+                            aria-label={`Rename ${b.name}`}
+                            onPress={e => { e?.stopPropagation?.(); setRenameTarget({ id: b.id, name: b.name }); setRenameValue(b.name) }}
+                          >
+                            ✎
+                          </Button>
+                          <Button
+                            isIconOnly size="sm" variant="light" radius="full"
+                            className="no-print text-foreground-500 hover:text-secondary"
+                            aria-label={`Duplicate ${b.name}`}
+                            onPress={async e => {
+                              e?.stopPropagation?.()
+                              try {
+                                const r = await apiFetch(`${API}/${b.id}/duplicate`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) })
+                                if (r.ok) load()
+                              } catch (err) { console.error('Duplicate failed:', err) }
+                            }}
+                          >
+                            ⧉
+                          </Button>
+                          <Button
+                            isIconOnly size="sm" variant="light" radius="full"
                             className="text-foreground-500 hover:text-danger"
                             aria-label={`Delete ${b.name}`}
                             onPress={e => { e?.stopPropagation?.(); setDeleteTarget({ id: b.id, name: b.name }) }}
