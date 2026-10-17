@@ -82,10 +82,10 @@ export default function SectionVII({ data, onChange }) {
 
         <Button size="sm" variant="bordered" color="primary" className="mb-4" onPress={addExpense}>+ Add Expense Item</Button>
 
-        <div className={totalCls}>Total Startup Expenses: ₱${PHP(totalExpenses)}</div>
-        <div className={totalCls}>Suggested Reserve for Contingencies (20%): ${PHP(contingencyAmount)}</div>
+        <div className={totalCls}>Total Startup Expenses: {PHP(totalExpenses)}</div>
+        <div className={totalCls}>Suggested Reserve for Contingencies (20%): {PHP(contingencyAmount)}</div>
         <div className="text-base font-bold text-foreground text-right px-3 py-3 border-y-2 border-divider mt-2">
-          Total Capital Needed: ₱${PHP(totalWithContingency)}
+          Total Capital Needed: {PHP(totalWithContingency)}
         </div>
 
         <div className="mt-6">

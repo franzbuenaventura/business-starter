@@ -172,17 +172,17 @@ export default function SectionVIII({ data, onChange }) {
         <div className="text-xs text-foreground-500 mb-3">Draw on the Sales Forecast from Section IV. List each revenue stream.</div>
         {rev.map((r, i) => <CRow key={i} item={r} index={i} onUpdate={rh.update} onRemove={rh.remove} np="e.g. Product sales, services, subscriptions" ap="0.00" />)}
         <AddBtn onClick={rh.add}>+ Add Revenue Stream</AddBtn>
-        <div className={totalCls}>Total Revenue: ₱${PHP(sa(rev))}</div>
+        <div className={totalCls}>Total Revenue: {PHP(sa(rev))}</div>
 
         <SubTitle>Cost of Goods Sold</SubTitle>
         <div className="text-xs text-foreground-500 mb-3">Direct costs of producing goods or services.</div>
         {cog.map((r, i) => <CRow key={i} item={r} index={i} onUpdate={ch.update} onRemove={ch.remove} np="e.g. Materials, direct labor, shipping" ap="0.00" />)}
         <AddBtn onClick={ch.add}>+ Add COGS Item</AddBtn>
-        <div className={totalCls}>Total COGS: ₱${PHP(sa(cog))}</div>
+        <div className={totalCls}>Total COGS: {PHP(sa(cog))}</div>
 
         {(() => { const rv = sa(rev); const cg = sa(cog); return (
           <div className="flex justify-end gap-6 mb-6 mt-2">
-            <div className="text-sm font-semibold">Gross Profit: ₱${PHP((rv - cg))}</div>
+            <div className="text-sm font-semibold">Gross Profit: {PHP((rv - cg))}</div>
             <div className="text-sm text-foreground-500">Margin: {rv > 0 ? ((rv - cg) / rv * 100).toFixed(1) + '%' : '—'}</div>
           </div>
         ); })()}
@@ -191,11 +191,11 @@ export default function SectionVIII({ data, onChange }) {
         <div className="text-xs text-foreground-500 mb-3">Rent, marketing, payroll, utilities, etc.</div>
         {opex.map((r, i) => <CRow key={i} item={r} index={i} onUpdate={oh.update} onRemove={oh.remove} np="e.g. Rent, Marketing, Payroll" ap="0.00" />)}
         <AddBtn onClick={oh.add}>+ Add Operating Expense</AddBtn>
-        <div className={totalCls}>Total OpEx: ₱${PHP(sa(opex))}</div>
+        <div className={totalCls}>Total OpEx: {PHP(sa(opex))}</div>
 
         {(() => { const netST = sa(rev) - sa(cog) - sa(opex); return (
           <div className={`text-sm font-bold text-right px-3 py-2 border-t-2 border-divider mt-2 ${netST >= 0 ? 'text-success' : 'text-danger'}`}>
-            Net Profit Before Tax: ₱${PHP(netST)}
+            Net Profit Before Tax: {PHP(netST)}
           </div>
         ); })()}
 
@@ -203,7 +203,7 @@ export default function SectionVIII({ data, onChange }) {
 
         {(() => { const tax = parseFloat(d.estimatedTaxLiability) || 0; const noi = sa(rev) - sa(cog) - sa(opex) - tax; return (
           <div className={`text-base font-bold text-right px-3 py-3 rounded-xl border-2 mt-3 ${noi >= 0 ? 'text-success border-success' : 'text-danger border-danger'}`}>
-            Net Operating Income: ₱${PHP(noi)}
+            Net Operating Income: {PHP(noi)}
           </div>
         ); })()}
 
@@ -258,27 +258,27 @@ export default function SectionVIII({ data, onChange }) {
         <div className="text-xs text-foreground-500 mb-3">What the business owns: cash, AR, equipment, inventory, etc.</div>
         {ba.map((r, i) => <CRow key={i} item={r} index={i} onUpdate={bah.update} onRemove={bah.remove} np="e.g. Cash, AR, Equipment, Inventory" ap="0.00" />)}
         <AddBtn onClick={bah.add}>+ Add Asset</AddBtn>
-        <div className={totalCls}>Total Assets: ₱${PHP(sa(ba))}</div>
+        <div className={totalCls}>Total Assets: {PHP(sa(ba))}</div>
 
         <SubTitle>Liabilities</SubTitle>
         <div className="text-xs text-foreground-500 mb-3">What the business owes: AP, loans payable, other debts.</div>
         {bl.map((r, i) => <CRow key={i} item={r} index={i} onUpdate={blh.update} onRemove={blh.remove} np="e.g. AP, Loans Payable" ap="0.00" />)}
         <AddBtn onClick={blh.add}>+ Add Liability</AddBtn>
-        <div className={totalCls}>Total Liabilities: ₱${PHP(sa(bl))}</div>
+        <div className={totalCls}>Total Liabilities: {PHP(sa(bl))}</div>
 
         <SubTitle>Owner's Equity</SubTitle>
         <div className="text-xs text-foreground-500 mb-3">Owner's investment plus retained earnings (or minus losses).</div>
         {be.map((r, i) => <CRow key={i} item={r} index={i} onUpdate={beh.update} onRemove={beh.remove} np="e.g. Owner investment, Retained earnings" ap="0.00" />)}
         <AddBtn onClick={beh.add}>+ Add Equity Item</AddBtn>
-        <div className={totalCls}>Total Equity: ₱${PHP(sa(be))}</div>
+        <div className={totalCls}>Total Equity: {PHP(sa(be))}</div>
 
         {(() => { const a = sa(ba); const l = sa(bl); const e = sa(be); const c = a - l; const ok = Math.abs(c - e) < 0.01; return (
           <div className="mt-4 p-4 rounded-xl bg-content2 border border-divider text-sm leading-relaxed">
             <div className="font-semibold mb-1">Balance Sheet Check</div>
-            <div>Total Assets: ₱${PHP(a)}</div>
-            <div>Total Liabilities: ₱${PHP(l)}</div>
-            <div><strong>Calc. Equity (A-L): ₱${PHP(c)}</strong></div>
-            <div><strong>Entered Equity: ₱${PHP(e)}</strong></div>
+            <div>Total Assets: {PHP(a)}</div>
+            <div>Total Liabilities: {PHP(l)}</div>
+            <div><strong>Calc. Equity (A-L): {PHP(c)}</strong></div>
+            <div><strong>Entered Equity: {PHP(e)}</strong></div>
             <span className={`font-semibold ${ok ? 'text-success' : 'text-danger'}`}>
               {ok ? '✓ In balance.' : '✗ Out of balance.'}
             </span>
@@ -294,13 +294,13 @@ export default function SectionVIII({ data, onChange }) {
         <div className="text-xs text-foreground-500 mb-3">Costs constant regardless of sales volume: rent, salaries, insurance, etc.</div>
         {fc.map((r, i) => <CRow key={i} item={r} index={i} onUpdate={fch.update} onRemove={fch.remove} np="e.g. Rent, Salaries, Insurance" ap="0.00" />)}
         <AddBtn onClick={fch.add}>+ Add Fixed Cost</AddBtn>
-        <div className={totalCls}>Total Fixed Costs: ₱${PHP(sa(fc))}</div>
+        <div className={totalCls}>Total Fixed Costs: {PHP(sa(fc))}</div>
 
         <SubTitle>Variable Costs (per unit)</SubTitle>
         <div className="text-xs text-foreground-500 mb-3">Costs varying with volume: materials, direct labor, commissions, etc.</div>
         {vc.map((r, i) => <CRow key={i} item={r} index={i} onUpdate={vch.update} onRemove={vch.remove} np="e.g. Materials, Direct labor, Commissions" ap="0.00" />)}
         <AddBtn onClick={vch.add}>+ Add Variable Cost</AddBtn>
-        <div className={totalCls}>Total Variable Cost/Unit: ₱${PHP(sa(vc))}</div>
+        <div className={totalCls}>Total Variable Cost/Unit: {PHP(sa(vc))}</div>
 
         <Field label="Average Unit Price / Revenue per Sale (₱)" hint="The average amount expected per unit sold or customer transaction." type="number" min="0" step="0.01" value={d.avgUnitPrice} onChange={v => hc('avgUnitPrice', v)} />
 
@@ -309,11 +309,11 @@ export default function SectionVIII({ data, onChange }) {
             <div className="text-base font-bold text-success mb-2">Break-Even Calculation</div>
             {valid ? (
               <div className="text-sm leading-loose">
-                Fixed Costs/mo: ₱${PHP(ft)}<br />
-                Variable Cost/Unit: ₱${PHP(vt)}<br />
-                Contribution Margin: ₱${PHP((up - vt))}<br />
+                Fixed Costs/mo: {PHP(ft)}<br />
+                Variable Cost/Unit: {PHP(vt)}<br />
+                Contribution Margin: {PHP((up - vt))}<br />
                 Break-Even (units/mo): {beu} units<br />
-                Break-Even Revenue/mo: ₱${PHP((beu * up))}<br />
+                Break-Even Revenue/mo: {PHP((beu * up))}<br />
                 <span className="text-foreground-500">≈ {Math.ceil(beu / 3 / 30)} hrs/bay/day · {((beu / (3 * 13 * 30)) * 100).toFixed(0)}% utilization of 3 bays (13 hrs/day)</span>
               </div>
             ) : (
@@ -345,7 +345,7 @@ export default function SectionVIII({ data, onChange }) {
           </div>
         ))}
         <AddBtn onClick={uoh.add}>+ Add Item</AddBtn>
-        <div className={totalCls}>Total Allocated: ₱${PHP(sa(uoc))}</div>
+        <div className={totalCls}>Total Allocated: {PHP(sa(uoc))}</div>
 
         <Field label="Expected Outcomes" hint="What specific results do you expect — increased revenue, expanded capacity, new product lines?" value={d.capitalExpectedOutcomes} onChange={v => hc('capitalExpectedOutcomes', v)} tall />
         <Field label="Additional Financial Notes" hint="Any other context that helps readers understand your financial plan — contingent liabilities, seasonal considerations, insurance, tax strategies, etc." value={d.financialNotes} onChange={v => hc('financialNotes', v)} tall />

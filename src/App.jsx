@@ -23,6 +23,9 @@ import AiDraftButton from './components/AiDraftButton.jsx'
 import { PrintModeContext } from './components/RichText.jsx'
 import { useOfflineSync } from './hooks/useOfflineSync.js'
 import ScenarioBar from './components/ScenarioBar.jsx'
+import HeadlineStrip from './components/HeadlineStrip.jsx'
+import { scenarioMetrics } from './components/ScenarioBar.jsx'
+import PortfolioView from './components/PortfolioView.jsx'
 import { apiFetch, clearToken } from './api.js'
 import './styles.css'
 import './print.css'
@@ -102,8 +105,15 @@ function calcAutoStatus(sections) {
 }
 
 function getDisplayStatus(business) {
-  if (business.status && STATUSES_SET.has(business.status)) return business.status
-  return calcAutoStatus(business.sections)
+  // 2026-10-16: display the COMPUTED status (sections-attached cards) — stored
+  // creation-time 'draft' made every card read Draft forever; the stored field
+  // remains for explicit overrides set later by the user UI (none exists yet).
+  const computed = calcAutoStatus(business.sections)
+  if (!business.sections || Object.keys(business.sections).length === 0) {
+    // No sections map on the payload (old server payload) — fall back to stored.
+    if (business.status && STATUSES_SET.has(business.status)) return business.status
+  }
+  return computed
 }
 
 function getStatusLabel(status) {
@@ -146,6 +156,7 @@ function SectionPager({ activeTab, onSwitch, sectionData, contentRef }) {
 export default function App() {
   const [businesses, setBusinesses] = useState(null)
   const [selectedId, setSelectedId] = useState(null)
+  const [listView, setListView] = useState('plans') // 'plans' | 'portfolio'
   const [showCreate, setShowCreate] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const { isOnline, pendingCount, syncing, queueOperation, syncQueue } = useOfflineSync()
@@ -273,6 +284,8 @@ export default function App() {
           </div>
         </NavbarBrand>
         <NavbarContent justify="end" className="gap-2 items-center">
+          <Button size="sm" variant={listView === 'plans' ? 'solid' : 'flat'} color={listView === 'plans' ? 'primary' : 'default'} className="no-print h-9" onClick={() => setListView('plans')}>Plans</Button>
+          <Button size="sm" variant={listView === 'portfolio' ? 'solid' : 'flat'} color={listView === 'portfolio' ? 'primary' : 'default'} className="no-print h-9" onClick={() => setListView('portfolio')}>Portfolio</Button>
           <Button size="sm" variant="flat" className="no-print h-9" startContent={<span className="text-base leading-none">⬇</span>} onClick={handleExport}>Export All</Button>
           <label className="no-print cursor-pointer">
             <input type="file" accept="application/json" className="hidden" onChange={handleImport} />
@@ -283,7 +296,9 @@ export default function App() {
       </Navbar>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 pt-6 pb-20">
-        {businesses === null ? (
+        {listView === 'portfolio' ? (
+          <PortfolioView onOpenPlan={id => setSelectedId(id)} />
+        ) : businesses === null ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {[0,1,2].map(i => (
               <div key={i} className="h-52 rounded-2xl border border-divider bg-content1 animate-pulse" />
@@ -836,7 +851,9 @@ function PlanView({ id, onBack }) {
             {plan.industry && <div className="print-doc-header__industry">{plan.industry}</div>}
             <hr className="print-doc-header__rule" />
           </div>
-          {SECTIONS.map(s => {
+                    {/* BUILD 5 (2026-10-16): financial snapshot + scenario appendix in print */}
+          <PrintSnapshot viii={sectionData?.VIII} vii={sectionData?.VII} planName={plan.name} activeScenario={activeScenario} />
+{SECTIONS.map(s => {
             const SectionComponent = SECTION_COMPONENTS[s.key]
             const raw = sectionData[s.key]
             let parsed = {}
@@ -932,6 +949,7 @@ function PlanView({ id, onBack }) {
             setActiveScenario(sc)
             if (sc && activeTab !== 'VII' && activeTab !== 'VIII') handleTabSwitch('VII')  // jump only out of locked tabs (AGY D2)
           }} />
+      <HeadlineStrip viii={scenarioOverride?.VIII} vii={scenarioOverride?.VII} activeScenarioName={activeScenario ? activeScenario.name : null} />
 
       {/* Prev / Next section quick nav */}
       <SectionPager activeTab={activeTab} onSwitch={handleTabSwitch} sectionData={sectionData} contentRef={contentRef} />
@@ -998,6 +1016,72 @@ function PlanView({ id, onBack }) {
 }
 
 /* ── Section Router ─────────────────────────────────────────── */
+
+
+/* ── Print financial snapshot (BUILD 5) ──────────────────────
+   Print/PDF export gains the headline numbers + scenario compare
+   appendix so the exported document matches the on-screen money
+   story, not just the raw SCORE form mirror.                       */
+function PrintSnapshot({ viii, vii, planName, activeScenario }) {
+  const m = scenarioMetrics(viii)
+  if (!m) return null
+  const fmtPhp = v => (v == null || isNaN(v)) ? '—' : '₱' + Math.round(Number(v)).toLocaleString('en-PH')
+  const capex = (() => {
+    if (!vii) return null
+    const sum = list => (Array.isArray(list) ? list.reduce((a, r) => a + (parseFloat(String(r?.amount == null ? 0 : r.amount).replace(/,/g, '')) || 0), 0) : 0)
+    const cat = vii.startupCosts && Array.isArray(vii.startupCosts.categories) ? sum(vii.startupCosts.categories) : 0
+    return Math.max(cat, sum(vii.expenses || [])) || null
+  })()
+  const sm = activeScenario ? scenarioMetrics(activeScenario.content?.VIII || activeScenario.content) : null
+  return (
+    <div className="print-section mb-10">
+      <div className="print-section__number">Financial Snapshot</div>
+      <h2 className="print-section__title text-2xl font-semibold mb-3">Headline numbers (12-month Year 1)</h2>
+      <table className="w-full text-sm" style={{ maxWidth: '32rem' }}>
+        <tbody>
+          <tr><td className="py-1 pr-3 text-foreground-500">Total revenue (12-mo)</td><td className="text-right tabular-nums font-medium">{fmtPhp(m.rev)}</td></tr>
+          <tr><td className="py-1 pr-3 text-foreground-500">COGS</td><td className="text-right tabular-nums">{fmtPhp(m.cogs)}</td></tr>
+          <tr><td className="py-1 pr-3 text-foreground-500">Operating expenses</td><td className="text-right tabular-nums">{fmtPhp(m.opex)}</td></tr>
+          <tr><td className="py-1 pr-3 text-foreground-500">Net operating income</td><td className="text-right tabular-nums font-medium">{fmtPhp(m.net)}</td></tr>
+          <tr><td className="py-1 pr-3 text-foreground-500">Net margin</td><td className="text-right tabular-nums">{m.margin == null ? '—' : m.margin.toFixed(1) + '%'}</td></tr>
+          {capex != null && <tr><td className="py-1 pr-3 text-foreground-500">Total capital required (VII)</td><td className="text-right tabular-nums">{fmtPhp(capex)}</td></tr>}
+          {capex != null && m.net > 0 && <tr><td className="py-1 pr-3 text-foreground-500">Payback @ Y1 net pace</td><td className="text-right tabular-nums">{(capex / m.net).toFixed(1)} years</td></tr>}
+        </tbody>
+      </table>
+      {sm && activeScenario && (
+        <div className="mt-5">
+          <h3 className="text-base font-semibold mb-2">Scenario appendix — {activeScenario.name}</h3>
+          {activeScenario.notes && <p className="text-xs text-foreground-500 mb-2">Assumptions: {activeScenario.notes}</p>}
+          <table className="w-full text-sm" style={{ maxWidth: '36rem' }}>
+            <thead>
+              <tr className="border-b border-divider text-xs text-foreground-500 text-left">
+                <th className="py-1 pr-3">Metric</th><th className="py-1 px-3 text-right">Base</th><th className="py-1 px-3 text-right">{activeScenario.name}</th><th className="py-1 px-3 text-right">Δ</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[
+                { label: '12-mo revenue', get: x => x?.rev },
+                { label: 'Operating expenses', get: x => x?.opex },
+                { label: 'Net operating income', get: x => x?.net },
+              ].map(row => {
+                const b = row.get(m), s = row.get(sm)
+                const d = (b != null && s != null) ? s - b : null
+                return (
+                  <tr key={row.label} className="border-b border-divider/50">
+                    <td className="py-1 pr-3 text-foreground-500">{row.label}</td>
+                    <td className="py-1 px-3 text-right tabular-nums">{fmtPhp(b)}</td>
+                    <td className="py-1 px-3 text-right tabular-nums">{fmtPhp(s)}</td>
+                    <td className={`py-1 px-3 text-right tabular-nums ${d == null ? '' : d >= 0 ? 'text-success' : 'text-danger'}`}>{d == null ? '—' : (d > 0 ? '+' : '−') + fmtPhp(Math.abs(d)).slice(1)}</td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
 
 function SectionRouter({ sectionKey, sectionLabel, sectionData, businessId, onSave, saveStatus, locked, lockBanner }) {
   const [localData, setLocalData] = useState(null)

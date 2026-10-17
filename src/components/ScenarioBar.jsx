@@ -163,9 +163,29 @@ function ScenarioCompare({ rows, onClose }) {
           ].map(row => (
             <tr key={row.label} className="border-b border-divider/50">
               <td className="py-1.5 pr-3 text-foreground-500">{row.label}</td>
-              {rows.map((r, i) => (
-                <td key={i} className={`text-right py-1.5 px-3 ${i === 0 ? 'font-medium' : ''}`}>{row.fmt(row.get(r.m))}</td>
-              ))}
+              {rows.map((r, i) => {
+                // BUILD 4 (2026-10-16): delta-vs-base columns — Base column stays plain;
+                // every scenario column gains "value (±Δ vs base · ±%)" so the whole
+                // effect reads at a glance without mental subtraction.
+                if (i === 0) return <td key={i} className="text-right py-1.5 px-3 font-medium">{row.fmt(row.get(r.m))}</td>
+                const base = row.get(rows[0].m)
+                const val = row.get(r.m)
+                const bothNum = base != null && val != null && !isNaN(base) && !isNaN(val)
+                const d = bothNum ? val - base : null
+                const pct = bothNum && base !== 0 ? (d / Math.abs(base)) * 100 : null
+                const good = row.label === 'Operating expenses' || row.label === 'COGS' ? (d != null && d < 0) : (d != null && d > 0)
+                const bad = row.label === 'Operating expenses' || row.label === 'COGS' ? (d != null && d > 0) : (d != null && d < 0)
+                return (
+                  <td key={i} className="text-right py-1.5 px-3">
+                    <div>{row.fmt(val)}</div>
+                    {d != null && d !== 0 && (
+                      <div className={`text-[10px] tabular-nums ${good ? 'text-success' : bad ? 'text-danger' : 'text-foreground-400'}`}>
+                        {d > 0 ? '+' : '−'}{row.fmt(Math.abs(d))}{pct != null && isFinite(pct) ? ` (${d > 0 ? '+' : '−'}${Math.abs(pct).toFixed(1)}%)` : ''}
+                      </div>
+                    )}
+                  </td>
+                )
+              })}
             </tr>
           ))}
         </tbody>
