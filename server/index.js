@@ -390,7 +390,10 @@ function createApp(db, persistFn) {
       if (clean.length > 160) return res.status(400).json({ error: 'Name too long' })
       db.run('UPDATE businesses SET name = ? WHERE id = ?', [clean, id])
     }
-    if (industry != null) db.run('UPDATE businesses SET industry = ? WHERE id = ?', [String(industry).trim() || null, id])
+    if (industry != null) {
+      const cleanInd = String(industry).trim().slice(0, 100) || null
+      db.run('UPDATE businesses SET industry = ? WHERE id = ?', [cleanInd, id])
+    }
     if (persistFn) persistFn()
     const business = queryOne(db, 'SELECT * FROM businesses WHERE id = ?', [id])
     res.json(business)
@@ -402,17 +405,19 @@ function createApp(db, persistFn) {
     const src = queryOne(db, 'SELECT * FROM businesses WHERE id = ?', [id])
     if (!src) return res.status(404).json({ error: 'Not found' })
     const { name } = req.body || {}
-    const newName = (name != null && String(name).trim()) || `${src.name} (copy)`
+    const copySuffix = ' (copy)'
+    const baseName = src.name && src.name.length + copySuffix.length > 160 ? src.name.slice(0, 160 - copySuffix.length).trim() : src.name
+    const newName = (name != null && String(name).trim()) || `${baseName}${copySuffix}`
     if (!newName.trim()) return res.status(400).json({ error: 'Name cannot be empty' })
-    db.run('INSERT INTO businesses (name, industry) VALUES (?, ?)', [newName.trim(), src.industry])
+    db.run('INSERT INTO businesses (name, industry, status) VALUES (?, ?, ?)', [newName.trim().slice(0, 160), src.industry, src.status || null])
     const newId = db.exec('SELECT last_insert_rowid() as id')[0].values[0][0]
     const sections = queryAll(db, 'SELECT section_key, content FROM plan_sections WHERE plan_id = ?', [id])
     for (const s of sections) {
-      db.run('INSERT INTO plan_sections (plan_id, section_key, content, updated_at) VALUES (?, ?, ?, datetime(\'now\'))', [newId, s.section_key, s.content])
+      db.run(`INSERT INTO plan_sections (plan_id, section_key, content, updated_at) VALUES (?, ?, ?, datetime('now'))`, [newId, s.section_key, s.content])
     }
     const scenarios = queryAll(db, 'SELECT name, notes, content, is_default FROM plan_scenarios WHERE plan_id = ?', [id])
     for (const si of scenarios) {
-      db.run('INSERT INTO plan_scenarios (plan_id, name, notes, content, is_default, updated_at) VALUES (?, ?, ?, ?, ?, datetime(\'now\'))', [newId, si.name, si.notes, si.content, si.is_default])
+      db.run(`INSERT INTO plan_scenarios (plan_id, name, notes, content, is_default, updated_at) VALUES (?, ?, ?, ?, ?, datetime('now'))`, [newId, si.name, si.notes, si.content, si.is_default])
     }
     if (persistFn) persistFn()
     const business = queryOne(db, 'SELECT * FROM businesses WHERE id = ?', [newId])

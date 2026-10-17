@@ -151,7 +151,8 @@ export default function SectionVIII({ data, onChange }) {
   // ── IRR/NPV helpers (2026-10-16 additions) ──
   // Project (unlevered) IRR: t0 = capital requested (fallback: equity invested); Y1 = 12-mo net; Y2+ = Y3 net (conservative flat to Y10).
   const capT0 = Math.max(cleanNum(data?.totalCapitalRequested), cleanNum(data?.returnEquity))
-  const y1Unlevered = rev - sa(cog || []) - sa(opex || [])
+  // AGY-H: rev is an ARRAY — must sum it (array − number = NaN → the −95% artifact)
+  const y1Unlevered = sa(rev) - sa(cog || []) - sa(opex || [])
   const y3Net = cleanNum(data?.threeYearNetProfitY3)
   const irrBisect = (flows) => {
     const npv = r => flows.reduce((a, c, t) => a + c / Math.pow(1 + r, t), 0)
@@ -485,7 +486,7 @@ export default function SectionVIII({ data, onChange }) {
         {(irrFlows ? (
           <div className="mt-2 rounded-xl border border-divider bg-content2 p-3 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
             <div><span className={itemLabel}>Capital at t0 (₱)</span><div className="text-sm font-semibold tabular-nums">{PHP(capT0)}</div></div>
-            <div><span className={itemLabel}>Project IRR (10-yr, modeled)</span><div className={`text-sm font-semibold tabular-nums ${irrPct != null ? (irrPct > 0.12 ? 'text-success' : irrPct > 0 ? '' : 'text-danger') : ''}`}>{irrPct == null ? 'n/a (capital not recovered in 10 yrs)' : (irrPct * 100).toFixed(1) + '%'}</div></div>
+            <div><span className={itemLabel}>{cleanNum(data?.returnDebtService) > 0 ? 'Equity IRR (10-yr, modeled)' : 'Project IRR (10-yr, modeled)'}</span><div className={`text-sm font-semibold tabular-nums ${irrPct != null ? (irrPct > 0.12 ? 'text-success' : irrPct > 0 ? '' : 'text-danger') : ''}`}>{irrPct == null ? 'n/a (capital not recovered in 10 yrs)' : (irrPct * 100).toFixed(1) + '%'}</div></div>
             <div><span className={itemLabel}>NPV @ 10% (₱)</span><div className={`text-sm font-semibold tabular-nums ${npv10 >= 0 ? 'text-success' : 'text-danger'}`}>{npv10 == null ? '—' : (npv10 < 0 ? '−' : '') + PHP(Math.abs(npv10))}</div></div>
             <div><span className={itemLabel}>Payback @ steady net</span><div className="text-sm font-semibold tabular-nums">{paybackYrs == null ? '—' : paybackYrs + ' yrs'}</div></div>
           </div>

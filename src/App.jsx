@@ -403,7 +403,8 @@ export default function App() {
                       <CardBody className="px-5 py-4">
                         <div className="flex items-start justify-between mb-3">
                           <Chip size="sm" variant="flat" {...STATUS_CHIP[status]}>{STATUS_LABELS[status]}</Chip>
-                          <Button
+                          <div className="flex items-center gap-0.5 no-print">
+<Button
                             isIconOnly size="sm" variant="light" radius="full"
                             className="no-print text-foreground-500 hover:text-primary"
                             aria-label={`Rename ${b.name}`}
@@ -433,6 +434,7 @@ export default function App() {
                           >
                             ✕
                           </Button>
+</div>
                         </div>
                         <div className="text-lg font-bold text-foreground leading-snug mb-0.5">{b.name}</div>
                         {b.industry && <div className="text-sm text-foreground-500 mb-1">{b.industry}</div>}
@@ -1208,6 +1210,9 @@ function SectionRouter({ sectionKey, sectionLabel, sectionData, businessId, onSa
   }, [onSave])
 
   useEffect(() => {
+    // AGY-H: an in-flight cross-key flush resolving while the user keeps editing
+    // used to clobber localData (reset to the in-flight content) — guard on dirty
+    if (dirtyRef.current) return
     const parsed = typeof sectionData === 'string' ? JSON.parse(sectionData) : sectionData
     setLocalData(parsed || {})
     localDataRef.current = parsed || {}
@@ -1233,7 +1238,7 @@ function SectionRouter({ sectionKey, sectionLabel, sectionData, businessId, onSa
   useEffect(() => {
     // H3: per-section empty-field nudge (DOM-based — any section shape)
     const id = requestAnimationFrame(() => {
-      const els = document.querySelectorAll('main input, main textarea, main .tiptap')
+      const els = document.querySelectorAll('#root input, #root textarea, #root .tiptap')
       let total = 0, empty = 0
       els.forEach(el => {
         if (el.disabled) return
@@ -1241,7 +1246,7 @@ function SectionRouter({ sectionKey, sectionLabel, sectionData, businessId, onSa
         const filled = el.classList.contains('tiptap') ? (el.innerText || '').trim().length > 0 : String(el.value || '').trim().length > 0
         if (!filled) empty++
       })
-      setFieldStats(total > 0 ? { total, empty } : null)
+      setFieldStats(total >= 6 ? { total, empty } : null)
     })
     return () => cancelAnimationFrame(id)
   }, [localData, sectionKey, locked])
